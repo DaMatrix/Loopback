@@ -13,26 +13,20 @@
  *
  */
 
-package net.daporkchop.loopback;
+package net.daporkchop.loopback.util;
 
-import net.daporkchop.loopback.endpoint.Client;
-import net.daporkchop.loopback.endpoint.Endpoint;
-import net.daporkchop.loopback.endpoint.Server;
-
-import java.util.Scanner;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import lombok.experimental.UtilityClass;
 
 /**
  * @author DaPorkchop_
  */
-public final class Loopback {
-    public static void main(String... args) {
-        Endpoint endpoint = args.length == 0 ? new Client() : new Server();
-        endpoint.start().syncUninterruptibly();
-
-        try (Scanner scanner = new Scanner(System.in)) {
-            while (!endpoint.handleCommand(scanner.nextLine())) ;
-        }
-
-        endpoint.close().syncUninterruptibly();
-    }
+@UtilityClass
+public class Constants {
+    public final EventLoopGroup GROUP = Epoll.isAvailable()
+            ? new EpollEventLoopGroup(Runtime.getRuntime().availableProcessors())
+            : new NioEventLoopGroup(Runtime.getRuntime().availableProcessors());
 }

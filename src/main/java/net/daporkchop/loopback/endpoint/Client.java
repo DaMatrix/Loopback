@@ -13,26 +13,21 @@
  *
  */
 
-package net.daporkchop.loopback;
+package net.daporkchop.loopback.endpoint;
 
-import net.daporkchop.loopback.endpoint.Client;
-import net.daporkchop.loopback.endpoint.Endpoint;
-import net.daporkchop.loopback.endpoint.Server;
-
-import java.util.Scanner;
+import io.netty.channel.ChannelFuture;
 
 /**
  * @author DaPorkchop_
  */
-public final class Loopback {
-    public static void main(String... args) {
-        Endpoint endpoint = args.length == 0 ? new Client() : new Server();
-        endpoint.start().syncUninterruptibly();
+public final class Client implements Endpoint {
+    @Override
+    public ChannelFuture start() {
+        return null;
+    }
 
-        try (Scanner scanner = new Scanner(System.in)) {
-            while (!endpoint.handleCommand(scanner.nextLine())) ;
-        }
-
-        endpoint.close().syncUninterruptibly();
+    @Override
+    public ChannelFuture close() {
+        return null;
     }
 }
