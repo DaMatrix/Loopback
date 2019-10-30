@@ -1,0 +1,65 @@
+apply plugin: "java"
+
+ext {
+    //general things
+    javaVersion = "1.8"
+    loopbackVersion = "12.0"
+
+    //dependency things
+    lombokVersion = "1.18.8"
+    nettyVersion = "4.1.36.Final"
+    porklibVersion = "0.4.0-SNAPSHOT"
+}
+
+group "net.daporkchop"
+version "$loopbackVersion"
+
+compileJava {
+    sourceCompatibility = targetCompatibility = "$javaVersion"
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = "UTF-8"
+}
+
+configurations {
+    shade
+    compile.extendsFrom shade
+}
+
+repositories {
+    mavenLocal()
+    /*maven {
+        name = "DaPorkchop_"
+        url = "https://maven.daporkchop.net/"
+    }*/
+    mavenCentral()
+}
+
+dependencies {
+    compile "io.netty:netty-handler:$nettyVersion"
+    compile "io.netty:netty-transport-native-epoll:$nettyVersion:linux-x86_64"
+
+    compileOnly "org.projectlombok:lombok:$lombokVersion"
+    annotationProcessor "org.projectlombok:lombok:$lombokVersion"
+}
+
+jar {
+    archiveName "loopback-v$loopbackVersion" + ".jar"
+
+    from {
+        configurations.shade.collect {
+            it.isDirectory() ? it : zipTree(it)
+        }.unique(true)
+    } {
+        exclude "META-INF/*"
+        exclude "LICENSE.txt"
+        exclude "dummyThing"
+    }
+
+    manifest {
+        attributes "Implementation-Title": "DaPorkchop_",
+                "Implementation-Version": version,
+                "Main-Class": "net.daporkchop.loopback.Loopback"
+    }
+}
