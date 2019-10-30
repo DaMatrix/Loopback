@@ -15,10 +15,18 @@
 
 package net.daporkchop.loopback.util;
 
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFactory;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.ServerChannel;
 import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.epoll.EpollServerSocketChannel;
+import io.netty.channel.epoll.EpollSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.util.AttributeKey;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -29,4 +37,9 @@ public class Constants {
     public final EventLoopGroup GROUP = Epoll.isAvailable()
             ? new EpollEventLoopGroup(Runtime.getRuntime().availableProcessors())
             : new NioEventLoopGroup(Runtime.getRuntime().availableProcessors());
+
+    public final ChannelFactory<Channel> CLIENT_CHANNEL_FACTORY = Epoll.isAvailable() ? EpollSocketChannel::new : NioSocketChannel::new;
+    public final ChannelFactory<ServerChannel> SERVER_CHANNEL_FACTORY = Epoll.isAvailable() ? EpollServerSocketChannel::new : NioServerSocketChannel::new;
+
+    public final AttributeKey<Channel> PAIR = AttributeKey.newInstance("loopback_pair");
 }

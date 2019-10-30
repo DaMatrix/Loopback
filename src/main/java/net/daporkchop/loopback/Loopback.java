@@ -15,11 +15,13 @@
 
 package net.daporkchop.loopback;
 
-import net.daporkchop.loopback.endpoint.Client;
-import net.daporkchop.loopback.endpoint.Endpoint;
-import net.daporkchop.loopback.endpoint.Server;
+import net.daporkchop.loopback.client.Client;
+import net.daporkchop.loopback.server.Server;
+import net.daporkchop.loopback.util.Endpoint;
 
 import java.util.Scanner;
+
+import static net.daporkchop.loopback.util.Constants.*;
 
 /**
  * @author DaPorkchop_
@@ -30,9 +32,12 @@ public final class Loopback {
         endpoint.start().syncUninterruptibly();
 
         try (Scanner scanner = new Scanner(System.in)) {
+            System.out.println("Started! Type \"stop\" to stop.");
             while (!endpoint.handleCommand(scanner.nextLine())) ;
+            System.out.println("Stopping...");
         }
 
         endpoint.close().syncUninterruptibly();
+        GROUP.shutdownGracefully();
     }
 }

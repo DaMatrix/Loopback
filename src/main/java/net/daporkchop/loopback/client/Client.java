@@ -13,9 +13,10 @@
  *
  */
 
-package net.daporkchop.loopback.endpoint;
+package net.daporkchop.loopback.client;
 
 import io.netty.channel.ChannelFuture;
+import net.daporkchop.loopback.util.Endpoint;
 
 /**
  * @author DaPorkchop_

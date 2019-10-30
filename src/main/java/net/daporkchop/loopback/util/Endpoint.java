@@ -13,7 +13,7 @@
  *
  */
 
-package net.daporkchop.loopback.endpoint;
+package net.daporkchop.loopback.util;
 
 import io.netty.channel.ChannelFuture;
 import lombok.NonNull;
