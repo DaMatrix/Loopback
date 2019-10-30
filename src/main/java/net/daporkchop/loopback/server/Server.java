@@ -15,18 +15,14 @@
 
 package net.daporkchop.loopback.server;
 
-import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ServerChannel;
-import io.netty.channel.epoll.Epoll;
-import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
+import net.daporkchop.loopback.server.management.ManagementChannelInitializer;
 import net.daporkchop.loopback.util.Endpoint;
 
 import static net.daporkchop.loopback.util.Constants.*;
@@ -35,35 +31,32 @@ import static net.daporkchop.loopback.util.Constants.*;
  * @author DaPorkchop_
  */
 public final class Server implements Endpoint {
-    protected ServerChannel channel;
+    protected ServerChannel managementChannel;
     protected ChannelGroup  group;
-    protected Bootstrap     clientBootstrap; //TODO
 
     @Override
-    public synchronized ChannelFuture start() {
-        if (this.channel != null || this.group != null) throw new IllegalStateException();
+    public synchronized void start() {
+        if (this.managementChannel != null || this.group != null) throw new IllegalStateException();
 
         this.group = new DefaultChannelGroup(GROUP.next());
-        return new ServerBootstrap()
-                .group(GROUP)
+
+        this.managementChannel = (ServerChannel) new ServerBootstrap().group(GROUP)
                 .channelFactory(SERVER_CHANNEL_FACTORY)
-                .childHandler(new ServerChannelInitializer.SSL(this))
+                .childHandler(new ManagementChannelInitializer(this))
                 .childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
-                .childOption(ChannelOption.AUTO_READ, false)
+                //.childOption(ChannelOption.AUTO_READ, false)
                 .childOption(ChannelOption.TCP_NODELAY, true)
-                .bind(59989).addListener((ChannelFutureListener) f -> this.channel = (ServerChannel) f.channel());
+                .bind(59989).syncUninterruptibly().channel();
     }
 
     @Override
     public synchronized ChannelFuture close() {
-        if (this.channel == null || this.group == null) throw new IllegalStateException();
+        if (this.managementChannel == null || this.group == null) throw new IllegalStateException();
 
-        this.clientBootstrap = null;
-
-        return this.channel.close().addListener(f -> {
+        return this.managementChannel.close().addListener(f -> {
             this.group.close();
             this.group = null;
-            this.channel = null;
+            this.managementChannel = null;
         });
     }
 }

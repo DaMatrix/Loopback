@@ -22,7 +22,7 @@ import lombok.NonNull;
  * @author DaPorkchop_
  */
 public interface Endpoint {
-    ChannelFuture start();
+    void start();
 
     default boolean handleCommand(@NonNull String command) {
         return "stop".equalsIgnoreCase(command);

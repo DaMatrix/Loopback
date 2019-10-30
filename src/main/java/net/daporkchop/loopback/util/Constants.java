@@ -42,4 +42,6 @@ public class Constants {
     public final ChannelFactory<ServerChannel> SERVER_CHANNEL_FACTORY = Epoll.isAvailable() ? EpollServerSocketChannel::new : NioServerSocketChannel::new;
 
     public final AttributeKey<Channel> PAIR = AttributeKey.newInstance("loopback_pair");
+
+    public final int PASSWORD_BYTES = 64;
 }

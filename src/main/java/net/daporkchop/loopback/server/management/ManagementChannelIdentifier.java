@@ -13,21 +13,32 @@
  *
  */
 
-package net.daporkchop.loopback.client;
+package net.daporkchop.loopback.server.management;
 
-import io.netty.channel.ChannelFuture;
-import net.daporkchop.loopback.util.Endpoint;
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.util.ReferenceCountUtil;
+
+import static net.daporkchop.loopback.util.Constants.PASSWORD_BYTES;
 
 /**
+ * Identifies the type of management channel for incoming connections.
+ *
  * @author DaPorkchop_
  */
-public final class Client implements Endpoint {
+public final class ManagementChannelIdentifier extends ChannelInboundHandlerAdapter {
     @Override
-    public void start() {
-    }
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        try {
+            if (!(msg instanceof ByteBuf)) throw new IllegalArgumentException(msg == null ? "null" : msg.getClass().getCanonicalName());
 
-    @Override
-    public ChannelFuture close() {
-        return null;
+            ByteBuf buf = (ByteBuf) msg;
+            if (buf.readableBytes() != PASSWORD_BYTES + 1) throw new IllegalArgumentException(String.format("Identification message is only %d bytes long!", buf.readableBytes()));
+
+            //TODO
+        } finally {
+            ReferenceCountUtil.release(msg);
+        }
     }
 }
