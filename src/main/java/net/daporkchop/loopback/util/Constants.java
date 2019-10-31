@@ -43,7 +43,6 @@ public class Constants {
     public final ChannelFactory<ServerChannel> SERVER_CHANNEL_FACTORY = Epoll.isAvailable() ? EpollServerSocketChannel::new : NioServerSocketChannel::new;
 
     public final AttributeKey<Channel> ATTR_PAIR = AttributeKey.newInstance("loopback_pair");
-    public final AttributeKey<Integer> ATTR_PORT = AttributeKey.newInstance("loopback_port");
     public final AttributeKey<Long>    ATTR_ID   = AttributeKey.newInstance("loopback_id");
 
     public final ChannelFutureListener DO_READ_HANDLER = future -> future.channel().attr(ATTR_PAIR).get().read();
@@ -52,4 +51,7 @@ public class Constants {
 
     public final int INTENT_CLIENT = 0;
     public final int INTENT_WAIT   = 1;
+
+    public final int COMMAND_OPEN = 0;
+    public final int COMMAND_CLOSE   = 1;
 }

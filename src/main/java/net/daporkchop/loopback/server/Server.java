@@ -60,6 +60,7 @@ public final class Server implements Endpoint {
                 .childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
                 //.childOption(ChannelOption.AUTO_READ, false)
                 .childOption(ChannelOption.TCP_NODELAY, true)
+                .childOption(ChannelOption.SO_KEEPALIVE, true)
                 .bind(59989).syncUninterruptibly().channel();
         this.allChannels.add(this.backendListener);
     }

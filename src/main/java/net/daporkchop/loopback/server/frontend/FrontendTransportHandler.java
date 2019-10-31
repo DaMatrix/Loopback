@@ -13,25 +13,42 @@
  *
  */
 
-package net.daporkchop.loopback.server;
+package net.daporkchop.loopback.server.frontend;
 
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.socket.SocketChannel;
-import lombok.Getter;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import net.daporkchop.loopback.server.backend.ServerControlHandler;
+
+import static net.daporkchop.loopback.util.Constants.*;
 
 /**
  * @author DaPorkchop_
  */
 @RequiredArgsConstructor
-@Getter
-public abstract class ServerChannelInitializer extends ChannelInitializer<SocketChannel> {
+public final class FrontendTransportHandler extends ChannelInboundHandlerAdapter {
     @NonNull
-    protected final Server server;
+    protected final ServerControlHandler handler;
 
     @Override
-    protected void initChannel(SocketChannel channel) throws Exception {
-        this.server.allChannels.add(channel); //add to channel group so that we can bulk-disconnect all channels when we shut down
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        this.handler.incomingChannel(ctx.channel());
+
+        super.channelActive(ctx);
+    }
+
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        if (!ctx.channel().hasAttr(ATTR_PAIR)) throw new IllegalStateException();
+
+        ctx.channel().attr(ATTR_PAIR).get().writeAndFlush(msg).addListener(DO_READ_HANDLER);
+    }
+
+    @Override
+    public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
+        if (ctx.channel().hasAttr(ATTR_PAIR)) ctx.channel().attr(ATTR_PAIR).get().close();
+
+        super.channelUnregistered(ctx);
     }
 }

@@ -13,25 +13,30 @@
  *
  */
 
-package net.daporkchop.loopback.server;
+package net.daporkchop.loopback.server.frontend;
 
-import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
-import lombok.Getter;
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
+import net.daporkchop.loopback.server.Server;
+import net.daporkchop.loopback.server.ServerChannelInitializer;
+import net.daporkchop.loopback.server.backend.ServerControlHandler;
 
 /**
  * @author DaPorkchop_
  */
-@RequiredArgsConstructor
-@Getter
-public abstract class ServerChannelInitializer extends ChannelInitializer<SocketChannel> {
-    @NonNull
-    protected final Server server;
+public final class FrontendChannelInitializer extends ServerChannelInitializer {
+    protected final FrontendTransportHandler transport;
+
+    public FrontendChannelInitializer(@NonNull ServerControlHandler control) {
+        super(control.server());
+
+        this.transport = new FrontendTransportHandler(control);
+    }
 
     @Override
     protected void initChannel(SocketChannel channel) throws Exception {
-        this.server.allChannels.add(channel); //add to channel group so that we can bulk-disconnect all channels when we shut down
+        super.initChannel(channel);
+
+        channel.pipeline().addLast("handle", this.transport);
     }
 }
