@@ -13,21 +13,35 @@
  *
  */
 
-package net.daporkchop.loopback.util;
+package net.daporkchop.loopback.server.backend;
 
-import io.netty.channel.ChannelFuture;
-import io.netty.util.concurrent.Future;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import lombok.Getter;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+import net.daporkchop.loopback.server.Server;
 
 /**
+ * Handles messages for control channels.
+ *
  * @author DaPorkchop_
  */
-public interface Endpoint {
-    void start();
+@RequiredArgsConstructor
+@Getter
+public final class ServerControlChannel extends ChannelInboundHandlerAdapter {
+    @NonNull
+    protected final Server server;
 
-    default boolean handleCommand(@NonNull String command) {
-        return "stop".equalsIgnoreCase(command);
+    protected Channel channel;
+    protected long id;
+
+    @Override
+    public synchronized void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+        if (this.channel != null) throw new IllegalStateException("Channel already set!");
+
+        this.channel = ctx.channel();
+        this.id = this.server.addControlChannel(this);
     }
-
-    Future<Void> close();
 }

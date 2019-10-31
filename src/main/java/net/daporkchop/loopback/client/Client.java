@@ -16,6 +16,7 @@
 package net.daporkchop.loopback.client;
 
 import io.netty.channel.ChannelFuture;
+import io.netty.util.concurrent.Future;
 import net.daporkchop.loopback.util.Endpoint;
 
 /**
@@ -27,7 +28,7 @@ public final class Client implements Endpoint {
     }
 
     @Override
-    public ChannelFuture close() {
+    public Future<Void> close() {
         return null;
     }
 }

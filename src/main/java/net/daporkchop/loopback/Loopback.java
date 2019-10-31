@@ -29,7 +29,7 @@ import static net.daporkchop.loopback.util.Constants.*;
 public final class Loopback {
     public static void main(String... args) {
         Endpoint endpoint = args.length == 0 ? new Client() : new Server();
-        endpoint.start().syncUninterruptibly();
+        endpoint.start();
 
         try (Scanner scanner = new Scanner(System.in)) {
             System.out.println("Started! Type \"stop\" to stop.");

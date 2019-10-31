@@ -22,8 +22,17 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
-import net.daporkchop.loopback.server.management.ManagementChannelInitializer;
+import io.netty.util.collection.LongObjectHashMap;
+import io.netty.util.collection.LongObjectMap;
+import io.netty.util.concurrent.Future;
+import lombok.Getter;
+import lombok.NonNull;
+import net.daporkchop.loopback.server.backend.BackendChannelInitializer;
+import net.daporkchop.loopback.server.backend.ServerControlChannel;
 import net.daporkchop.loopback.util.Endpoint;
+
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static net.daporkchop.loopback.util.Constants.*;
 
@@ -31,32 +40,51 @@ import static net.daporkchop.loopback.util.Constants.*;
  * @author DaPorkchop_
  */
 public final class Server implements Endpoint {
-    protected ServerChannel managementChannel;
-    protected ChannelGroup  group;
+    protected ServerChannel backendListener;
+    protected ChannelGroup allChannels;
+
+    protected LongObjectMap<ServerControlChannel> controlChannelsById;
+
+    @Getter
+    protected final byte[] password = new byte[PASSWORD_BYTES];
 
     @Override
     public synchronized void start() {
-        if (this.managementChannel != null || this.group != null) throw new IllegalStateException();
+        if (this.backendListener != null || this.allChannels != null) throw new IllegalStateException();
 
-        this.group = new DefaultChannelGroup(GROUP.next());
+        this.allChannels = new DefaultChannelGroup(GROUP.next(), true);
+        this.controlChannelsById = new LongObjectHashMap<>();
 
-        this.managementChannel = (ServerChannel) new ServerBootstrap().group(GROUP)
+        this.backendListener = (ServerChannel) new ServerBootstrap().group(GROUP)
                 .channelFactory(SERVER_CHANNEL_FACTORY)
-                .childHandler(new ManagementChannelInitializer(this))
+                .childHandler(new BackendChannelInitializer(this))
                 .childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
                 //.childOption(ChannelOption.AUTO_READ, false)
                 .childOption(ChannelOption.TCP_NODELAY, true)
                 .bind(59989).syncUninterruptibly().channel();
+        this.allChannels.add(this.backendListener);
     }
 
     @Override
-    public synchronized ChannelFuture close() {
-        if (this.managementChannel == null || this.group == null) throw new IllegalStateException();
+    public synchronized Future<Void> close() {
+        if (this.backendListener == null || this.allChannels == null) throw new IllegalStateException();
 
-        return this.managementChannel.close().addListener(f -> {
-            this.group.close();
-            this.group = null;
-            this.managementChannel = null;
+        this.controlChannelsById = null;
+
+        //close the channel group, the future will not be completed until every single channel has been closed
+        return this.allChannels.close().addListener(f -> {
+            this.allChannels = null;
+            this.backendListener = null;
         });
+    }
+
+    public synchronized long addControlChannel(@NonNull ServerControlChannel channel) {
+        if (this.backendListener == null || this.allChannels == null) throw new IllegalStateException();
+
+        Random r = ThreadLocalRandom.current();
+        long l;
+        while (this.controlChannelsById.containsKey(l = r.nextLong())) ;
+        this.controlChannelsById.put(l, channel);
+        return l;
     }
 }

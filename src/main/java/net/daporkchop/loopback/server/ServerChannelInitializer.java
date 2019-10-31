@@ -17,30 +17,21 @@ package net.daporkchop.loopback.server;
 
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.handler.ssl.SslHandler;
-import io.netty.handler.ssl.util.SelfSignedCertificate;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import lombok.experimental.Accessors;
-
-import javax.net.ssl.SSLException;
-import java.security.cert.CertificateException;
 
 /**
  * @author DaPorkchop_
  */
 @RequiredArgsConstructor
 @Getter
-@Accessors(fluent = true)
 public class ServerChannelInitializer extends ChannelInitializer<SocketChannel> {
     @NonNull
     protected final Server server;
 
     @Override
     protected void initChannel(SocketChannel channel) throws Exception {
-        this.server.group.add(channel); //add to channel group so that we can bulk-disconnect all channels when we shut down
+        this.server.allChannels.add(channel); //add to channel group so that we can bulk-disconnect all channels when we shut down
     }
 }

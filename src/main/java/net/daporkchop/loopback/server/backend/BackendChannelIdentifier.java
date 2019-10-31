@@ -13,12 +13,15 @@
  *
  */
 
-package net.daporkchop.loopback.server.management;
+package net.daporkchop.loopback.server.backend;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.ReferenceCountUtil;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+import net.daporkchop.loopback.server.Server;
 
 import static net.daporkchop.loopback.util.Constants.PASSWORD_BYTES;
 
@@ -27,7 +30,11 @@ import static net.daporkchop.loopback.util.Constants.PASSWORD_BYTES;
  *
  * @author DaPorkchop_
  */
-public final class ManagementChannelIdentifier extends ChannelInboundHandlerAdapter {
+@RequiredArgsConstructor
+public final class BackendChannelIdentifier extends ChannelInboundHandlerAdapter {
+    @NonNull
+    protected final Server server;
+
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         try {
@@ -36,7 +43,12 @@ public final class ManagementChannelIdentifier extends ChannelInboundHandlerAdap
             ByteBuf buf = (ByteBuf) msg;
             if (buf.readableBytes() != PASSWORD_BYTES + 1) throw new IllegalArgumentException(String.format("Identification message is only %d bytes long!", buf.readableBytes()));
 
-            //TODO
+            byte[] password = this.server.password();
+            for (int i = 0; i < PASSWORD_BYTES; i++)    {
+                if (buf.getByte(i) != password[i])  {
+                    throw new IllegalArgumentException("Invalid password!");
+                }
+            }
         } finally {
             ReferenceCountUtil.release(msg);
         }

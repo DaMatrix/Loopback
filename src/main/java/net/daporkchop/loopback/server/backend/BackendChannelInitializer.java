@@ -13,7 +13,7 @@
  *
  */
 
-package net.daporkchop.loopback.server.management;
+package net.daporkchop.loopback.server.backend;
 
 /**
  * @author DaPorkchop_
@@ -34,7 +34,7 @@ import java.security.cert.CertificateException;
 /**
  * @author DaPorkchop_
  */
-public final class ManagementChannelInitializer extends ServerChannelInitializer {
+public final class BackendChannelInitializer extends ServerChannelInitializer {
     private static final SslContext CONTEXT;
 
     static {
@@ -50,7 +50,7 @@ public final class ManagementChannelInitializer extends ServerChannelInitializer
         }
     }
 
-    public ManagementChannelInitializer(@NonNull Server server) {
+    public BackendChannelInitializer(@NonNull Server server) {
         super(server);
     }
 
@@ -60,6 +60,6 @@ public final class ManagementChannelInitializer extends ServerChannelInitializer
 
         channel.pipeline()
                 .addLast("ssl", new SslHandler(CONTEXT.newEngine(channel.alloc())))
-                .addLast("handle", new ManagementChannelIdentifier());
+                .addLast("handle", new BackendChannelIdentifier(this.server));
     }
 }

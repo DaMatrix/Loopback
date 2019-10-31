@@ -44,4 +44,7 @@ public class Constants {
     public final AttributeKey<Channel> PAIR = AttributeKey.newInstance("loopback_pair");
 
     public final int PASSWORD_BYTES = 64;
+
+    public final int INTENT_CLIENT = 0;
+    public final int INTENT_WAIT = 1;
 }
