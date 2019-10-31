@@ -15,10 +15,6 @@
 
 package net.daporkchop.loopback.server.backend;
 
-/**
- * @author DaPorkchop_
- */
-
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -50,8 +46,12 @@ public final class BackendChannelInitializer extends ServerChannelInitializer {
         }
     }
 
+    protected final BackendChannelIdentifier identifier;
+
     public BackendChannelInitializer(@NonNull Server server) {
         super(server);
+
+        this.identifier = new BackendChannelIdentifier(server);
     }
 
     @Override
@@ -60,6 +60,6 @@ public final class BackendChannelInitializer extends ServerChannelInitializer {
 
         channel.pipeline()
                 .addLast("ssl", new SslHandler(CONTEXT.newEngine(channel.alloc())))
-                .addLast("handle", new BackendChannelIdentifier(this.server));
+                .addLast("handle", this.identifier);
     }
 }

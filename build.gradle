@@ -18,7 +18,7 @@ apply plugin: "java"
 ext {
     //general things
     javaVersion = "1.8"
-    loopbackVersion = "12.0"
+    loopbackVersion = "0.0.1-SNAPSHOT"
 
     //dependency things
     lombokVersion = "1.18.8"
@@ -52,8 +52,10 @@ repositories {
 }
 
 dependencies {
-    compile "io.netty:netty-handler:$nettyVersion"
-    compile "io.netty:netty-transport-native-epoll:$nettyVersion:linux-x86_64"
+    shade "io.netty:netty-handler:$nettyVersion"
+    shade "io.netty:netty-transport-native-epoll:$nettyVersion:linux-x86_64"
+
+    shade "net.daporkchop.lib:hash:$porklibVersion"
 
     compileOnly "org.projectlombok:lombok:$lombokVersion"
     annotationProcessor "org.projectlombok:lombok:$lombokVersion"

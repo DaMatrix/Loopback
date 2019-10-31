@@ -15,11 +15,16 @@
 
 package net.daporkchop.loopback.server.backend;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.util.ReferenceCountUtil;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+
+import static net.daporkchop.loopback.util.Constants.*;
 
 /**
  * @author DaPorkchop_
@@ -31,7 +36,30 @@ public final class ServerBackendTransportHandler extends ChannelDuplexHandler {
     protected final ServerControlHandler control;
 
     @Override
-    public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
-        this.control.readyChannels.add(ctx.channel());
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        if (ctx.channel().hasAttr(ATTR_PAIR))    {
+            ctx.channel().attr(ATTR_PAIR).get().writeAndFlush(msg).addListener(DO_READ_HANDLER);
+        } else {
+            try {
+                if (msg instanceof ByteBuf) {
+                    ByteBuf buf = (ByteBuf) msg;
+                    if (buf.readableBytes() != 8) throw new IllegalStateException();
+
+                    this.control.backendChannelReady(ctx.channel(), buf.readLong());
+                } else {
+                    throw new IllegalStateException();
+                }
+            } finally {
+                ReferenceCountUtil.release(msg);
+            }
+        }
+    }
+
+    @Override
+    public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
+        if (ctx.channel().hasAttr(ATTR_PAIR))   {
+            ctx.channel().attr(ATTR_PAIR).get().close();
+        }
+        super.channelUnregistered(ctx);
     }
 }

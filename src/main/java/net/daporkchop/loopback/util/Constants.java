@@ -17,6 +17,7 @@ package net.daporkchop.loopback.util;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFactory;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.epoll.Epoll;
@@ -38,13 +39,17 @@ public class Constants {
             ? new EpollEventLoopGroup(Runtime.getRuntime().availableProcessors())
             : new NioEventLoopGroup(Runtime.getRuntime().availableProcessors());
 
-    public final ChannelFactory<Channel> CLIENT_CHANNEL_FACTORY = Epoll.isAvailable() ? EpollSocketChannel::new : NioSocketChannel::new;
+    public final ChannelFactory<Channel>       CLIENT_CHANNEL_FACTORY = Epoll.isAvailable() ? EpollSocketChannel::new : NioSocketChannel::new;
     public final ChannelFactory<ServerChannel> SERVER_CHANNEL_FACTORY = Epoll.isAvailable() ? EpollServerSocketChannel::new : NioServerSocketChannel::new;
 
-    public final AttributeKey<Channel> PAIR = AttributeKey.newInstance("loopback_pair");
+    public final AttributeKey<Channel> ATTR_PAIR = AttributeKey.newInstance("loopback_pair");
+    public final AttributeKey<Integer> ATTR_PORT = AttributeKey.newInstance("loopback_port");
+    public final AttributeKey<Long>    ATTR_ID   = AttributeKey.newInstance("loopback_id");
 
-    public final int PASSWORD_BYTES = 64;
+    public final ChannelFutureListener DO_READ_HANDLER = future -> future.channel().attr(ATTR_PAIR).get().read();
+
+    public final int PASSWORD_BYTES = 256 >>> 3; // sha256 is 256 bits long
 
     public final int INTENT_CLIENT = 0;
-    public final int INTENT_WAIT = 1;
+    public final int INTENT_WAIT   = 1;
 }

@@ -18,13 +18,17 @@ package net.daporkchop.loopback.server.backend;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.DefaultChannelGroup;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import net.daporkchop.loopback.server.Server;
 
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.net.InetSocketAddress;
+import java.util.Iterator;
+
+import static net.daporkchop.loopback.util.Constants.*;
 
 /**
  * Handles messages for control channels.
@@ -37,11 +41,12 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
     @NonNull
     protected final Server server;
 
-    protected final Queue<Channel> readyChannels = new ConcurrentLinkedQueue<>();
     protected final ServerBackendTransportHandler transportHandler = new ServerBackendTransportHandler(this);
 
-    protected Channel channel;
-    protected long id;
+    private   ChannelGroup waitingChannels;
+    protected Channel      channel;
+    protected long         id;
+    protected long childIdCounter = 0L;
 
     @Override
     public synchronized void handlerAdded(ChannelHandlerContext ctx) throws Exception {
@@ -49,5 +54,46 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
 
         this.channel = ctx.channel();
         this.id = this.server.addControlChannel(this);
+
+        this.waitingChannels = new DefaultChannelGroup(this.channel.eventLoop(), true);
+
+        this.channel.writeAndFlush(ctx.alloc().ioBuffer(8).writeLong(this.id)); //send self channel ID to remote server
+    }
+
+    @Override
+    public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
+        this.waitingChannels.close();
+        this.waitingChannels = null;
+    }
+
+    public synchronized void backendChannel(@NonNull Channel channel) {
+        channel.pipeline().replace("handle", "handle", this.transportHandler);
+    }
+
+    public synchronized void backendChannelReady(@NonNull Channel channel, long id) {
+        for (Iterator<Channel> iter = this.waitingChannels.iterator(); iter.hasNext(); ) {
+            Channel next = iter.next();
+            if (next.attr(ATTR_ID).get() == id) {
+                this.bindChannels(channel, next);
+                iter.remove();
+                return;
+            }
+        }
+    }
+
+    public synchronized void incomingChannel(@NonNull Channel channel) {
+        long id = this.childIdCounter++;
+        channel.attr(ATTR_ID).set(id);
+        this.channel.writeAndFlush(this.channel.alloc().ioBuffer(8 + 2)
+                        .writeLong(id)
+                        .writeShort(((InetSocketAddress) channel.localAddress()).getPort()));
+
+        this.waitingChannels.add(channel);
+    }
+
+    protected void bindChannels(@NonNull Channel backend, @NonNull Channel incoming) {
+        backend.attr(ATTR_PAIR).set(incoming);
+        incoming.attr(ATTR_PAIR).set(backend);
+        backend.read();
     }
 }

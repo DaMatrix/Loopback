@@ -87,4 +87,12 @@ public final class Server implements Endpoint {
         channel.channel().closeFuture().addListener(future -> this.controlChannelsById.remove(channel.id(), channel));
         return l;
     }
+
+    public synchronized ServerControlHandler getControlChannel(long id) {
+        if (this.backendListener == null || this.allChannels == null) throw new IllegalStateException();
+
+        ServerControlHandler handler = this.controlChannelsById.get(id);
+        if (handler == null) throw new IllegalArgumentException();
+        return handler;
+    }
 }

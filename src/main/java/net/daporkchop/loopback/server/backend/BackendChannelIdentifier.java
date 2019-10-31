@@ -23,10 +23,10 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import net.daporkchop.loopback.server.Server;
 
-import static net.daporkchop.loopback.util.Constants.PASSWORD_BYTES;
+import static net.daporkchop.loopback.util.Constants.*;
 
 /**
- * Identifies the type of management channel for incoming connections.
+ * Identifies the type of backend channel for incoming connections.
  *
  * @author DaPorkchop_
  */
@@ -41,13 +41,22 @@ public final class BackendChannelIdentifier extends ChannelInboundHandlerAdapter
             if (!(msg instanceof ByteBuf)) throw new IllegalArgumentException(msg == null ? "null" : msg.getClass().getCanonicalName());
 
             ByteBuf buf = (ByteBuf) msg;
-            if (buf.readableBytes() != PASSWORD_BYTES + 1) throw new IllegalArgumentException(String.format("Identification message is only %d bytes long!", buf.readableBytes()));
+            if (buf.readableBytes() != PASSWORD_BYTES || buf.readableBytes() != PASSWORD_BYTES + 8) throw new IllegalArgumentException(String.format("Identification message is only %d bytes long!", buf.readableBytes()));
 
             byte[] password = this.server.password();
             for (int i = 0; i < PASSWORD_BYTES; i++)    {
                 if (buf.getByte(i) != password[i])  {
                     throw new IllegalArgumentException("Invalid password!");
                 }
+            }
+
+            switch (buf.readableBytes())    {
+                case PASSWORD_BYTES: //client connection
+                    ctx.channel().pipeline().replace("handle", "handle", new ServerControlHandler(this.server));
+                    break;
+                case PASSWORD_BYTES + 8:
+                    this.server.getControlChannel(buf.getLong(PASSWORD_BYTES)).backendChannel(ctx.channel());
+                    break;
             }
         } finally {
             ReferenceCountUtil.release(msg);
