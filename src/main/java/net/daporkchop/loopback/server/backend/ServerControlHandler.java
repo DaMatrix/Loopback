@@ -23,6 +23,9 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import net.daporkchop.loopback.server.Server;
 
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
 /**
  * Handles messages for control channels.
  *
@@ -30,9 +33,12 @@ import net.daporkchop.loopback.server.Server;
  */
 @RequiredArgsConstructor
 @Getter
-public final class ServerControlChannel extends ChannelInboundHandlerAdapter {
+public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
     @NonNull
     protected final Server server;
+
+    protected final Queue<Channel> readyChannels = new ConcurrentLinkedQueue<>();
+    protected final ServerBackendTransportHandler transportHandler = new ServerBackendTransportHandler(this);
 
     protected Channel channel;
     protected long id;

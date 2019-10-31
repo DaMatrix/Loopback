@@ -17,7 +17,6 @@ package net.daporkchop.loopback.server;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.PooledByteBufAllocator;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.group.ChannelGroup;
@@ -28,7 +27,7 @@ import io.netty.util.concurrent.Future;
 import lombok.Getter;
 import lombok.NonNull;
 import net.daporkchop.loopback.server.backend.BackendChannelInitializer;
-import net.daporkchop.loopback.server.backend.ServerControlChannel;
+import net.daporkchop.loopback.server.backend.ServerControlHandler;
 import net.daporkchop.loopback.util.Endpoint;
 
 import java.util.Random;
@@ -43,7 +42,7 @@ public final class Server implements Endpoint {
     protected ServerChannel backendListener;
     protected ChannelGroup allChannels;
 
-    protected LongObjectMap<ServerControlChannel> controlChannelsById;
+    protected LongObjectMap<ServerControlHandler> controlChannelsById;
 
     @Getter
     protected final byte[] password = new byte[PASSWORD_BYTES];
@@ -78,13 +77,14 @@ public final class Server implements Endpoint {
         });
     }
 
-    public synchronized long addControlChannel(@NonNull ServerControlChannel channel) {
+    public synchronized long addControlChannel(@NonNull ServerControlHandler channel) {
         if (this.backendListener == null || this.allChannels == null) throw new IllegalStateException();
 
         Random r = ThreadLocalRandom.current();
         long l;
         while (this.controlChannelsById.containsKey(l = r.nextLong())) ;
         this.controlChannelsById.put(l, channel);
+        channel.channel().closeFuture().addListener(future -> this.controlChannelsById.remove(channel.id(), channel));
         return l;
     }
 }
