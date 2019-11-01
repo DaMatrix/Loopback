@@ -21,6 +21,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.ReferenceCountUtil;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import net.daporkchop.lib.logging.Logging;
 import net.daporkchop.loopback.server.Server;
 
 import static net.daporkchop.loopback.util.Constants.*;
@@ -38,15 +39,25 @@ public final class BackendChannelIdentifier extends ChannelInboundHandlerAdapter
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         try {
-            if (!(msg instanceof ByteBuf)) throw new IllegalArgumentException(msg == null ? "null" : msg.getClass().getCanonicalName());
+            if (!(msg instanceof ByteBuf)) {
+                LOG_SERVER.error("Received invalid message type: %s", msg == null ? "null" : msg.getClass().getCanonicalName());
+                ctx.channel().close();
+                return;
+            }
 
             ByteBuf buf = (ByteBuf) msg;
-            if (buf.readableBytes() != PASSWORD_BYTES || buf.readableBytes() != PASSWORD_BYTES + 8) throw new IllegalArgumentException(String.format("Identification message is only %d bytes long!", buf.readableBytes()));
+            if (buf.readableBytes() != PASSWORD_BYTES || buf.readableBytes() != PASSWORD_BYTES + 8) {
+                LOG_SERVER.error("Identification message is only %d bytes long!", buf.readableBytes());
+                ctx.channel().close();
+                return;
+            }
 
             byte[] password = this.server.password();
             for (int i = 0; i < PASSWORD_BYTES; i++)    {
                 if (buf.getByte(i) != password[i])  {
-                    throw new IllegalArgumentException("Invalid password!");
+                    LOG_SERVER.error("Invalid password!");
+                    ctx.channel().close();
+                    return;
                 }
             }
 

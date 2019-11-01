@@ -13,34 +13,18 @@
  *
  */
 
-package net.daporkchop.loopback;
+package net.daporkchop.loopback.client.backend;
 
-import net.daporkchop.lib.logging.Logging;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import net.daporkchop.loopback.client.Client;
-import net.daporkchop.loopback.server.Server;
-import net.daporkchop.loopback.util.Endpoint;
-
-import java.util.Scanner;
-
-import static net.daporkchop.loopback.util.Constants.*;
 
 /**
  * @author DaPorkchop_
  */
-public final class Loopback {
-    public static void main(String... args) {
-        Logging.logger.enableANSI().redirectStdOut();
-
-        Endpoint endpoint = args.length == 0 ? new Client() : new Server();
-        endpoint.start();
-
-        try (Scanner scanner = new Scanner(System.in)) {
-            System.out.println("Started! Type \"stop\" to stop.");
-            while (!endpoint.handleCommand(scanner.nextLine())) ;
-            System.out.println("Stopping...");
-        }
-
-        endpoint.close().syncUninterruptibly();
-        GROUP.shutdownGracefully();
-    }
+@RequiredArgsConstructor
+public final class ClientControlHandler extends ChannelInboundHandlerAdapter {
+    @NonNull
+    protected final Client client;
 }

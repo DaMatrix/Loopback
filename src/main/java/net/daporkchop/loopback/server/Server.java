@@ -40,7 +40,7 @@ import static net.daporkchop.loopback.util.Constants.*;
  */
 public final class Server implements Endpoint {
     protected ServerChannel backendListener;
-    protected ChannelGroup allChannels;
+    protected ChannelGroup  allChannels;
 
     protected LongObjectMap<ServerControlHandler> controlChannelsById;
 

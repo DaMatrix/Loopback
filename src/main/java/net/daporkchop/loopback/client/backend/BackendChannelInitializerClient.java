@@ -13,53 +13,65 @@
  *
  */
 
-package net.daporkchop.loopback.server.backend;
+package net.daporkchop.loopback.client.backend;
 
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
-import io.netty.handler.ssl.util.SelfSignedCertificate;
+import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import lombok.NonNull;
-import net.daporkchop.loopback.server.Server;
-import net.daporkchop.loopback.server.ServerChannelInitializer;
+import net.daporkchop.lib.unsafe.PUnsafe;
+import net.daporkchop.loopback.client.Client;
+import net.daporkchop.loopback.client.ClientChannelInitializer;
 
 import javax.net.ssl.SSLException;
-import java.security.cert.CertificateException;
+import java.net.InetSocketAddress;
+
+import static net.daporkchop.loopback.util.Constants.*;
 
 /**
  * @author DaPorkchop_
  */
-public final class BackendChannelInitializer extends ServerChannelInitializer {
-    private static final SslContext CONTEXT;
+public final class BackendChannelInitializerClient extends ClientChannelInitializer {
+    private static final long CLIENT_CONTROL_CHANNEL_OFFSET = PUnsafe.pork_getOffset(Client.class, "controlChannel");
+
+    private static final SslContext SSL_CONTEXT;
 
     static {
         SslContext context = null;
         try {
-            SelfSignedCertificate cert = new SelfSignedCertificate();
-            cert.delete();
-            context = SslContextBuilder.forServer(cert.key(), cert.cert()).build();
-        } catch (CertificateException | SSLException e) {
+            context = SslContextBuilder.forClient().trustManager(InsecureTrustManagerFactory.INSTANCE).build();
+        } catch (SSLException e) {
             throw new RuntimeException(e);
         } finally {
-            CONTEXT = context;
+            SSL_CONTEXT = context;
         }
     }
 
-    protected final BackendChannelIdentifier identifier;
-
-    public BackendChannelInitializer(@NonNull Server server) {
-        super(server);
-
-        this.identifier = new BackendChannelIdentifier(server);
+    public BackendChannelInitializerClient(@NonNull Client client) {
+        super(client);
     }
 
     @Override
-    protected void initChannel(SocketChannel channel) throws Exception {
+    protected synchronized void initChannel(SocketChannel channel) throws Exception {
         super.initChannel(channel);
 
-        channel.pipeline()
-                .addLast("ssl", new SslHandler(CONTEXT.newEngine(channel.alloc()), false))
-                .addLast("handle", this.identifier);
+        if (channel.remoteAddress() == null) {
+            LOG_CLIENT.error("Address was null!");
+            channel.close();
+            return;
+        } else {
+            LOG_CLIENT.info("Address was not null.");
+        }
+
+        InetSocketAddress address = (InetSocketAddress) channel.remoteAddress();
+        channel.pipeline().addLast("ssl", new SslHandler(SSL_CONTEXT.newEngine(channel.alloc(), address.getHostString(), address.getPort()), false));
+
+        if (PUnsafe.compareAndSwapObject(this.client, CLIENT_CONTROL_CHANNEL_OFFSET, null, channel)) {
+            //the new channel should be a control channel
+        } else {
+            //the new channel should be a normal data channel
+        }
     }
 }

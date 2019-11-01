@@ -15,55 +15,23 @@
 
 package net.daporkchop.loopback.client;
 
-import io.netty.bootstrap.Bootstrap;
-import io.netty.buffer.PooledByteBufAllocator;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.group.ChannelGroup;
-import io.netty.channel.group.DefaultChannelGroup;
+import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.util.concurrent.Future;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
-import net.daporkchop.lib.unsafe.PUnsafe;
-import net.daporkchop.loopback.util.Endpoint;
-
-import java.net.InetSocketAddress;
-
-import static net.daporkchop.loopback.util.Constants.*;
+import lombok.RequiredArgsConstructor;
 
 /**
  * @author DaPorkchop_
  */
+@RequiredArgsConstructor
 @Getter
-public final class Client implements Endpoint {
-    public static final InetSocketAddress SERVER_ADDRESS = new InetSocketAddress("localhost", 59989);
-
-    protected ChannelGroup channels;
-    protected Bootstrap bootstrap;
-
-    @Getter(AccessLevel.NONE)
-    private volatile SocketChannel controlChannel;
+public abstract class ClientChannelInitializer extends ChannelInitializer<SocketChannel> {
+    @NonNull
+    protected final Client client;
 
     @Override
-    public synchronized void start() {
-        if (this.channels != null) throw new IllegalStateException();
-
-        this.channels = new DefaultChannelGroup(GROUP.next(), true);
-
-        this.bootstrap = new Bootstrap().group(GROUP)
-                .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
-                .option(ChannelOption.SO_KEEPALIVE, true)
-                .option(ChannelOption.TCP_NODELAY, true)
-                .remoteAddress("vps1.daporkchop.net", 59989);
-    }
-
-    @Override
-    public synchronized Future<Void> close() {
-        if (this.channels == null) throw new IllegalStateException();
-
-        this.bootstrap = null;
-
-        return this.channels.close().addListener(f -> this.channels = null);
+    protected void initChannel(SocketChannel channel) throws Exception {
+        this.client.channels.add(channel);
     }
 }

@@ -29,6 +29,8 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.AttributeKey;
 import lombok.experimental.UtilityClass;
+import net.daporkchop.lib.logging.Logger;
+import net.daporkchop.lib.logging.Logging;
 
 /**
  * @author DaPorkchop_
@@ -47,11 +49,11 @@ public class Constants {
 
     public final ChannelFutureListener DO_READ_HANDLER = future -> future.channel().attr(ATTR_PAIR).get().read();
 
+    public final Logger LOG_SERVER = Logging.logger.channel("Server");
+    public final Logger LOG_CLIENT = Logging.logger.channel("Client");
+
     public final int PASSWORD_BYTES = 256 >>> 3; // sha256 is 256 bits long
 
-    public final int INTENT_CLIENT = 0;
-    public final int INTENT_WAIT   = 1;
-
-    public final int COMMAND_OPEN = 0;
-    public final int COMMAND_CLOSE   = 1;
+    public final int COMMAND_OPEN  = 0;
+    public final int COMMAND_CLOSE = 1;
 }
