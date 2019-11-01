@@ -40,14 +40,14 @@ public final class BackendChannelIdentifier extends ChannelInboundHandlerAdapter
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         try {
             if (!(msg instanceof ByteBuf)) {
-                LOG_SERVER.error("Received invalid message type: %s", msg == null ? "null" : msg.getClass().getCanonicalName());
+                ctx.channel().attr(ATTR_LOG).get().error("Received invalid message type: %s", msg == null ? "null" : msg.getClass().getCanonicalName());
                 ctx.channel().close();
                 return;
             }
 
             ByteBuf buf = (ByteBuf) msg;
-            if (buf.readableBytes() != PASSWORD_BYTES || buf.readableBytes() != PASSWORD_BYTES + 8) {
-                LOG_SERVER.error("Identification message is only %d bytes long!", buf.readableBytes());
+            if (buf.readableBytes() != PASSWORD_BYTES && buf.readableBytes() != PASSWORD_BYTES + 8) {
+                ctx.channel().attr(ATTR_LOG).get().error("Identification message is only %d bytes long!", buf.readableBytes());
                 ctx.channel().close();
                 return;
             }
@@ -55,7 +55,7 @@ public final class BackendChannelIdentifier extends ChannelInboundHandlerAdapter
             byte[] password = this.server.password();
             for (int i = 0; i < PASSWORD_BYTES; i++)    {
                 if (buf.getByte(i) != password[i])  {
-                    LOG_SERVER.error("Invalid password!");
+                    ctx.channel().attr(ATTR_LOG).get().error("Invalid password!");
                     ctx.channel().close();
                     return;
                 }
@@ -63,14 +63,24 @@ public final class BackendChannelIdentifier extends ChannelInboundHandlerAdapter
 
             switch (buf.readableBytes())    {
                 case PASSWORD_BYTES: //client connection
+                    ctx.channel().attr(ATTR_LOG).get().debug("valid password (control)");
                     ctx.channel().pipeline().replace("handle", "handle", new ServerControlHandler(this.server));
                     break;
                 case PASSWORD_BYTES + 8:
                     this.server.getControlChannel(buf.getLong(PASSWORD_BYTES)).backendChannel(ctx.channel());
+                    ctx.channel().attr(ATTR_LOG).get().debug("valid password+id (data)");
                     break;
             }
         } finally {
             ReferenceCountUtil.release(msg);
         }
+    }
+
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        ctx.channel().attr(ATTR_LOG).set(Logging.logger.channel(ctx.channel().remoteAddress().toString()));
+        ctx.channel().attr(ATTR_LOG).get().debug("channelActive");
+
+        super.channelActive(ctx);
     }
 }

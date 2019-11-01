@@ -15,6 +15,7 @@
 
 package net.daporkchop.loopback;
 
+import net.daporkchop.lib.logging.LogAmount;
 import net.daporkchop.lib.logging.Logging;
 import net.daporkchop.loopback.client.Client;
 import net.daporkchop.loopback.server.Server;
@@ -29,18 +30,23 @@ import static net.daporkchop.loopback.util.Constants.*;
  */
 public final class Loopback {
     public static void main(String... args) {
-        Logging.logger.enableANSI().redirectStdOut();
+        Logging.logger.enableANSI().redirectStdOut().setLogAmount(LogAmount.DEBUG);
 
         Endpoint endpoint = args.length == 0 ? new Client() : new Server();
-        endpoint.start();
+        try {
+            endpoint.start();
 
-        try (Scanner scanner = new Scanner(System.in)) {
-            System.out.println("Started! Type \"stop\" to stop.");
-            while (!endpoint.handleCommand(scanner.nextLine())) ;
-            System.out.println("Stopping...");
+            try (Scanner scanner = new Scanner(System.in)) {
+                System.out.println("Started! Type \"stop\" to stop.");
+                while (!endpoint.handleCommand(scanner.nextLine())) ;
+                System.out.println("Stopping...");
+            }
+        } finally {
+            try {
+                endpoint.close().syncUninterruptibly();
+            } finally {
+                GROUP.shutdownGracefully();
+            }
         }
-
-        endpoint.close().syncUninterruptibly();
-        GROUP.shutdownGracefully();
     }
 }

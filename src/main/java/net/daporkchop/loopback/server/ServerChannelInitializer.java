@@ -20,6 +20,9 @@ import io.netty.channel.socket.SocketChannel;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import net.daporkchop.lib.logging.Logging;
+
+import static net.daporkchop.loopback.util.Constants.*;
 
 /**
  * @author DaPorkchop_
@@ -32,6 +35,7 @@ public abstract class ServerChannelInitializer extends ChannelInitializer<Socket
 
     @Override
     protected void initChannel(SocketChannel channel) throws Exception {
+        channel.attr(ATTR_LOG).set(Logging.logger.channel(channel.toString()));
         this.server.allChannels.add(channel); //add to channel group so that we can bulk-disconnect all channels when we shut down
     }
 }

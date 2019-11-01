@@ -46,11 +46,9 @@ public class Constants {
 
     public final AttributeKey<Channel> ATTR_PAIR = AttributeKey.newInstance("loopback_pair");
     public final AttributeKey<Long>    ATTR_ID   = AttributeKey.newInstance("loopback_id");
+    public final AttributeKey<Logger>  ATTR_LOG  = AttributeKey.newInstance("loopback_log");
 
     public final ChannelFutureListener DO_READ_HANDLER = future -> future.channel().attr(ATTR_PAIR).get().read();
-
-    public final Logger LOG_SERVER = Logging.logger.channel("Server");
-    public final Logger LOG_CLIENT = Logging.logger.channel("Client");
 
     public final int PASSWORD_BYTES = 256 >>> 3; // sha256 is 256 bits long
 

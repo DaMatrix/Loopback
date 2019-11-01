@@ -57,21 +57,17 @@ public final class BackendChannelInitializerClient extends ClientChannelInitiali
     protected synchronized void initChannel(SocketChannel channel) throws Exception {
         super.initChannel(channel);
 
-        if (channel.remoteAddress() == null) {
-            LOG_CLIENT.error("Address was null!");
-            channel.close();
-            return;
-        } else {
-            LOG_CLIENT.info("Address was not null.");
-        }
-
-        InetSocketAddress address = (InetSocketAddress) channel.remoteAddress();
-        channel.pipeline().addLast("ssl", new SslHandler(SSL_CONTEXT.newEngine(channel.alloc(), address.getHostString(), address.getPort()), false));
+        channel.pipeline().addLast("ssl", new SslHandler(SSL_CONTEXT.newEngine(channel.alloc()), false));
 
         if (PUnsafe.compareAndSwapObject(this.client, CLIENT_CONTROL_CHANNEL_OFFSET, null, channel)) {
             //the new channel should be a control channel
+            channel.attr(ATTR_LOG).get().debug("initChannel (control)");
+
+            channel.config().setAutoRead(true);
+            channel.pipeline().addLast("handle", new ClientControlHandler(this.client));
         } else {
             //the new channel should be a normal data channel
+            channel.attr(ATTR_LOG).get().debug("initChannel (data)");
         }
     }
 }

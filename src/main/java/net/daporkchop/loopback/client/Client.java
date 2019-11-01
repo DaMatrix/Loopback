@@ -26,6 +26,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
 import net.daporkchop.lib.unsafe.PUnsafe;
+import net.daporkchop.loopback.client.backend.BackendChannelInitializerClient;
 import net.daporkchop.loopback.util.Endpoint;
 
 import java.net.InetSocketAddress;
@@ -52,10 +53,15 @@ public final class Client implements Endpoint {
         this.channels = new DefaultChannelGroup(GROUP.next(), true);
 
         this.bootstrap = new Bootstrap().group(GROUP)
+                .channelFactory(CLIENT_CHANNEL_FACTORY)
+                .handler(new BackendChannelInitializerClient(this))
                 .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
+                .option(ChannelOption.AUTO_READ, false)
                 .option(ChannelOption.SO_KEEPALIVE, true)
                 .option(ChannelOption.TCP_NODELAY, true)
-                .remoteAddress("vps1.daporkchop.net", 59989);
+                .remoteAddress(SERVER_ADDRESS);
+
+        this.bootstrap.connect().syncUninterruptibly();
     }
 
     @Override

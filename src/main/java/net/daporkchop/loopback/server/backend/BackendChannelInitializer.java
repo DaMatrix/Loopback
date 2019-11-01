@@ -16,6 +16,7 @@
 package net.daporkchop.loopback.server.backend;
 
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
@@ -38,7 +39,7 @@ public final class BackendChannelInitializer extends ServerChannelInitializer {
         try {
             SelfSignedCertificate cert = new SelfSignedCertificate();
             cert.delete();
-            context = SslContextBuilder.forServer(cert.key(), cert.cert()).build();
+            context = SslContextBuilder.forServer(cert.key(), cert.cert()).clientAuth(ClientAuth.OPTIONAL).build();
         } catch (CertificateException | SSLException e) {
             throw new RuntimeException(e);
         } finally {

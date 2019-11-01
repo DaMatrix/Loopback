@@ -15,10 +15,18 @@
 
 package net.daporkchop.loopback.client.backend;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.handler.ssl.SslHandshakeCompletionEvent;
+import io.netty.util.ReferenceCountUtil;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import net.daporkchop.lib.logging.Logging;
 import net.daporkchop.loopback.client.Client;
+
+import static net.daporkchop.loopback.util.Constants.*;
 
 /**
  * @author DaPorkchop_
@@ -27,4 +35,38 @@ import net.daporkchop.loopback.client.Client;
 public final class ClientControlHandler extends ChannelInboundHandlerAdapter {
     @NonNull
     protected final Client client;
+
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        ctx.channel().attr(ATTR_LOG).set(Logging.logger.channel(ctx.channel().remoteAddress().toString()));
+        super.channelActive(ctx);
+    }
+
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        if (evt instanceof SslHandshakeCompletionEvent) {
+            if (evt == SslHandshakeCompletionEvent.SUCCESS)    {
+                ctx.channel().attr(ATTR_LOG).get().debug("ssl handshake success");
+                ctx.channel().writeAndFlush(Unpooled.wrappedBuffer(new byte[PASSWORD_BYTES]));
+            } else {
+                ctx.channel().attr(ATTR_LOG).get().alert(((SslHandshakeCompletionEvent) evt).cause());
+            }
+        }
+
+        super.userEventTriggered(ctx, evt);
+    }
+
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        try {
+            if (ctx.channel().hasAttr(ATTR_ID)) {
+                //TODO: do something here
+            } else {
+                ctx.channel().attr(ATTR_ID).set(((ByteBuf) msg).readLong());
+                ctx.channel().attr(ATTR_LOG).get().info("Control channel connected! ID: %d", ctx.channel().attr(ATTR_ID).get());
+            }
+        } finally {
+            ReferenceCountUtil.release(msg);
+        }
+    }
 }

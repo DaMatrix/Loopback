@@ -20,6 +20,9 @@ import io.netty.channel.socket.SocketChannel;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import net.daporkchop.lib.logging.Logging;
+
+import static net.daporkchop.loopback.util.Constants.*;
 
 /**
  * @author DaPorkchop_
@@ -32,6 +35,7 @@ public abstract class ClientChannelInitializer extends ChannelInitializer<Socket
 
     @Override
     protected void initChannel(SocketChannel channel) throws Exception {
+        channel.attr(ATTR_LOG).set(Logging.logger.channel(channel.toString()));
         this.client.channels.add(channel);
     }
 }
