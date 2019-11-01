@@ -43,8 +43,7 @@ public final class ClientTransportHandler extends ChannelInboundHandlerAdapter {
                 ctx.channel().writeAndFlush(ctx.alloc().ioBuffer(PASSWORD_BYTES + 8)
                         .writeBytes(this.client.password())
                         .writeLong(this.client.controlChannel().attr(ATTR_ID).get()));
-                ctx.channel().writeAndFlush(ctx.alloc().ioBuffer(8)
-                        .writeLong(ctx.channel().attr(ATTR_ID).getAndSet(null)));
+                //this.client.readyChannels().add(ctx.channel());
             } else {
                 ctx.channel().attr(ATTR_LOG).get().alert(((SslHandshakeCompletionEvent) evt).cause());
             }

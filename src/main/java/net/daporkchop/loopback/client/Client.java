@@ -39,7 +39,10 @@ import net.daporkchop.loopback.util.Addr;
 import net.daporkchop.loopback.util.Endpoint;
 
 import java.net.InetSocketAddress;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -63,7 +66,7 @@ public final class Client implements Endpoint {
 
     private volatile SocketChannel controlChannel;
 
-    //private final ChannelFuture[] waiting = new ChannelFuture[CLIENT_READY_SOCKETS];
+    //private final Queue<Channel> readyChannels = new ConcurrentLinkedQueue<>();
 
     private IntObjectMap<Addr> targetAddresses;
 
@@ -126,13 +129,13 @@ public final class Client implements Endpoint {
         this.targetBootstrap.connect(dst.host(), dst.port()).addListener((ChannelFutureListener) dstFuture -> {
             if (dstFuture.isSuccess())  {
                 this.bootstrap.connect(SERVER_ADDRESS).addListener((ChannelFutureListener) serverFuture -> {
-                    serverFuture.channel().attr(ATTR_ID).set(remoteId);
                     serverFuture.channel().pipeline().get(SslHandler.class).handshakeFuture().addListener(f -> {
+                        serverFuture.channel().writeAndFlush(serverFuture.channel().alloc().ioBuffer(8).writeLong(remoteId));
                         bindChannels(dstFuture.channel(), serverFuture.channel());
                     });
                 });
             } else {
-                //TODO: do something
+                //the connection will time out on the server by itself
                 System.err.printf("unable to connect to %s!\n", dst);
             }
         });
