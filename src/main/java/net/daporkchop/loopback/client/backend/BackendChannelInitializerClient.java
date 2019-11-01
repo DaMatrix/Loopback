@@ -15,6 +15,7 @@
 
 package net.daporkchop.loopback.client.backend;
 
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -49,8 +50,12 @@ public final class BackendChannelInitializerClient extends ClientChannelInitiali
         }
     }
 
+    protected final ClientTransportHandler transport;
+
     public BackendChannelInitializerClient(@NonNull Client client) {
         super(client);
+
+        this.transport = new ClientTransportHandler();
     }
 
     @Override
@@ -60,6 +65,7 @@ public final class BackendChannelInitializerClient extends ClientChannelInitiali
         channel.pipeline().addLast("ssl", new SslHandler(SSL_CONTEXT.newEngine(channel.alloc()), false));
 
         if (PUnsafe.compareAndSwapObject(this.client, CLIENT_CONTROL_CHANNEL_OFFSET, null, channel)) {
+            channel.closeFuture().addListener((ChannelFutureListener) f -> PUnsafe.compareAndSwapObject(this.client, CLIENT_CONTROL_CHANNEL_OFFSET, f.channel(), null));
             //the new channel should be a control channel
             channel.attr(ATTR_LOG).get().debug("initChannel (control)");
 
@@ -68,6 +74,8 @@ public final class BackendChannelInitializerClient extends ClientChannelInitiali
         } else {
             //the new channel should be a normal data channel
             channel.attr(ATTR_LOG).get().debug("initChannel (data)");
+
+            channel.pipeline().addLast("handle", this.transport);
         }
     }
 }

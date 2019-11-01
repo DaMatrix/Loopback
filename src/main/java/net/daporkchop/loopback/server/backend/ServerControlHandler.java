@@ -35,7 +35,9 @@ import net.daporkchop.loopback.server.Server;
 import net.daporkchop.loopback.server.frontend.FrontendChannelInitializer;
 
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 import static net.daporkchop.loopback.util.Constants.*;
 
@@ -52,12 +54,11 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
 
     protected final ServerBackendTransportHandler transportHandler = new ServerBackendTransportHandler(this);
 
-    private   ChannelGroup                waitingChannels;
+    private   List<Channel>                        waitingChannels;
     private   ChannelGroup                allChannels;
     private   IntObjectMap<ServerChannel> boundChannels;
     protected Channel                     channel;
     protected long                        id;
-    protected long childIdCounter = 0L;
 
     @Override
     public synchronized void handlerAdded(ChannelHandlerContext ctx) throws Exception {
@@ -66,7 +67,7 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
         this.channel = ctx.channel();
         this.id = this.server.addControlChannel(this);
 
-        this.waitingChannels = new DefaultChannelGroup(this.channel.eventLoop(), true);
+        this.waitingChannels = new ArrayList<>();
         this.allChannels = new DefaultChannelGroup(this.channel.eventLoop(), true);
 
         this.boundChannels = new IntObjectHashMap<>();
@@ -76,9 +77,11 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
+        ctx.channel().attr(ATTR_LOG).get().info("Control channel disconnected! Closing everything.");
         this.allChannels.close();
-        this.waitingChannels.close();
-        this.allChannels = this.waitingChannels = null;
+        this.allChannels = null;
+        this.waitingChannels.clear();
+        this.waitingChannels = null;
     }
 
     @Override
@@ -98,7 +101,7 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
                         .childOption(ChannelOption.SO_KEEPALIVE, true)
                         .bind(port)
                         .addListener((ChannelFutureListener) f -> {
-                            if (this.boundChannels.putIfAbsent(port, (ServerChannel) f.channel()) != null) {
+                            if (this.boundChannels.putIfAbsent(port, (ServerChannel) f.channel()) != null || !this.allChannels.add(f.channel())) {
                                 throw new IllegalStateException();
                             }
                         });
@@ -120,32 +123,27 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
     }
 
     public synchronized void backendChannelReady(@NonNull Channel channel, long id) {
-        for (Iterator<Channel> iter = this.waitingChannels.iterator(); iter.hasNext(); ) {
-            Channel next = iter.next();
-            if (next.attr(ATTR_ID).get() == id) {
-                this.bindChannels(channel, next);
-                iter.remove();
-                return;
-            }
-        }
+        Channel waiting = this.waitingChannels.set((int) id, null);
+        if (waiting == null) throw new NullPointerException(Long.toUnsignedString(id));
+        channel.attr(ATTR_LOG).get().info("Bound to %s", waiting.remoteAddress());
+        bindChannels(channel, waiting);
     }
 
     public synchronized void incomingChannel(@NonNull Channel channel) {
-        long id = this.childIdCounter++;
-        channel.attr(ATTR_ID).set(id);
+        int id = 0;
+        while (id < this.waitingChannels.size() && this.waitingChannels.get(id) != null)    {
+            id++;
+        }
+        if (id == this.waitingChannels.size())  {
+            this.waitingChannels.add(channel);
+        } else {
+            this.waitingChannels.set(id, channel);
+        }
         this.channel.writeAndFlush(this.channel.alloc().ioBuffer(8 + 2)
                 .writeLong(id)
                 .writeShort(((InetSocketAddress) channel.localAddress()).getPort()));
 
         this.waitingChannels.add(channel);
         this.allChannels.add(channel);
-    }
-
-    @SuppressWarnings("deprecation")
-    protected void bindChannels(@NonNull Channel backend, @NonNull Channel incoming) {
-        backend.attr(ATTR_PAIR).set(incoming);
-        incoming.attr(ATTR_PAIR).set(backend);
-        incoming.attr(ATTR_ID).remove();
-        backend.read();
     }
 }

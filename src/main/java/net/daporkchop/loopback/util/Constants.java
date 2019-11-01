@@ -28,6 +28,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.AttributeKey;
+import lombok.NonNull;
 import lombok.experimental.UtilityClass;
 import net.daporkchop.lib.logging.Logger;
 import net.daporkchop.lib.logging.Logging;
@@ -54,4 +55,14 @@ public class Constants {
 
     public final int COMMAND_OPEN  = 0;
     public final int COMMAND_CLOSE = 1;
+
+    public final int CLIENT_READY_SOCKETS = 3;
+
+    @SuppressWarnings("deprecation")
+    public void bindChannels(@NonNull Channel backend, @NonNull Channel incoming) {
+        backend.attr(ATTR_PAIR).set(incoming);
+        incoming.attr(ATTR_PAIR).set(backend);
+        incoming.read();
+        backend.read();
+    }
 }

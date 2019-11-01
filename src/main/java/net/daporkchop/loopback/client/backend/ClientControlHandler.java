@@ -39,7 +39,15 @@ public final class ClientControlHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         ctx.channel().attr(ATTR_LOG).set(Logging.logger.channel(ctx.channel().remoteAddress().toString()));
+
         super.channelActive(ctx);
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        ctx.channel().attr(ATTR_LOG).get().info("Disconnected!");
+
+        super.channelInactive(ctx);
     }
 
     @Override
@@ -48,6 +56,10 @@ public final class ClientControlHandler extends ChannelInboundHandlerAdapter {
             if (evt == SslHandshakeCompletionEvent.SUCCESS)    {
                 ctx.channel().attr(ATTR_LOG).get().debug("ssl handshake success");
                 ctx.channel().writeAndFlush(Unpooled.wrappedBuffer(new byte[PASSWORD_BYTES]));
+
+                this.client.targetAddresses().forEach((srcPort, addr) -> { //add any ports that are registered already
+                    ctx.channel().writeAndFlush(ctx.alloc().ioBuffer(3).writeByte(COMMAND_OPEN).writeShort(srcPort));
+                });
             } else {
                 ctx.channel().attr(ATTR_LOG).get().alert(((SslHandshakeCompletionEvent) evt).cause());
             }
@@ -59,10 +71,13 @@ public final class ClientControlHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         try {
+            if (!(msg instanceof ByteBuf)) throw new IllegalArgumentException(msg == null ? "null" : msg.getClass().getCanonicalName());
+            ByteBuf buf = (ByteBuf) msg;
+
             if (ctx.channel().hasAttr(ATTR_ID)) {
-                //TODO: do something here
+                this.client.handleConnectionRequest(buf.readLong(), buf.readUnsignedShort());
             } else {
-                ctx.channel().attr(ATTR_ID).set(((ByteBuf) msg).readLong());
+                ctx.channel().attr(ATTR_ID).set(buf.readLong());
                 ctx.channel().attr(ATTR_LOG).get().info("Control channel connected! ID: %d", ctx.channel().attr(ATTR_ID).get());
             }
         } finally {

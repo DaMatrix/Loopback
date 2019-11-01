@@ -17,19 +17,30 @@ package net.daporkchop.loopback.client;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.PooledByteBufAllocator;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.ssl.SslHandler;
+import io.netty.util.collection.IntObjectHashMap;
+import io.netty.util.collection.IntObjectMap;
 import io.netty.util.concurrent.Future;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
 import net.daporkchop.lib.unsafe.PUnsafe;
 import net.daporkchop.loopback.client.backend.BackendChannelInitializerClient;
+import net.daporkchop.loopback.client.target.TargetChannelInitializer;
+import net.daporkchop.loopback.util.Addr;
 import net.daporkchop.loopback.util.Endpoint;
 
 import java.net.InetSocketAddress;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static net.daporkchop.loopback.util.Constants.*;
 
@@ -38,19 +49,26 @@ import static net.daporkchop.loopback.util.Constants.*;
  */
 @Getter
 public final class Client implements Endpoint {
+    private static final Pattern PATTERN_ADD_COMMAND = Pattern.compile("^add ([0-9]+) ([^:]+):([0-9]+)$");
     public static final InetSocketAddress SERVER_ADDRESS = new InetSocketAddress("localhost", 59989);
 
     protected ChannelGroup channels;
     protected Bootstrap bootstrap;
+    protected Bootstrap targetBootstrap;
 
     @Getter(AccessLevel.NONE)
     private volatile SocketChannel controlChannel;
+
+    //private final ChannelFuture[] waiting = new ChannelFuture[CLIENT_READY_SOCKETS];
+
+    private IntObjectMap<Addr> targetAddresses;
 
     @Override
     public synchronized void start() {
         if (this.channels != null) throw new IllegalStateException();
 
         this.channels = new DefaultChannelGroup(GROUP.next(), true);
+        this.targetAddresses = new IntObjectHashMap<>();
 
         this.bootstrap = new Bootstrap().group(GROUP)
                 .channelFactory(CLIENT_CHANNEL_FACTORY)
@@ -62,14 +80,56 @@ public final class Client implements Endpoint {
                 .remoteAddress(SERVER_ADDRESS);
 
         this.bootstrap.connect().syncUninterruptibly();
+
+        this.targetBootstrap = this.bootstrap.clone()
+                .remoteAddress(null)
+                .handler(new TargetChannelInitializer(this));
     }
 
     @Override
     public synchronized Future<Void> close() {
         if (this.channels == null) throw new IllegalStateException();
 
-        this.bootstrap = null;
+        this.targetBootstrap = this.bootstrap = null;
+        this.targetAddresses = null;
 
         return this.channels.close().addListener(f -> this.channels = null);
+    }
+
+    @Override
+    public synchronized boolean handleCommand(@NonNull String command) {
+        if (this.channels == null) throw new IllegalStateException();
+
+        Matcher matcher = PATTERN_ADD_COMMAND.matcher(command);
+        if (matcher.find()) {
+            int sourcePort = Integer.parseInt(matcher.group(1));
+            String dstAddress = matcher.group(2);
+            int dstPort = Integer.parseInt(matcher.group(3));
+
+            this.targetAddresses.put(sourcePort, new Addr(dstAddress, dstPort));
+            this.controlChannel.writeAndFlush(this.controlChannel.alloc().ioBuffer(3).writeByte(COMMAND_OPEN).writeShort(sourcePort));
+        }
+        return Endpoint.super.handleCommand(command);
+    }
+
+    public synchronized void handleConnectionRequest(long remoteId, int srcPort)  {
+        Addr dst = this.targetAddresses.get(srcPort);
+        if (dst == null) throw new IllegalArgumentException(Integer.toUnsignedString(srcPort));
+
+        //ChannelFuture toServer = this.bootstrap.connect(SERVER_ADDRESS);
+        //ChannelFuture toDst = this.targetBootstrap.connect(dst.host(), dst.port());
+        this.targetBootstrap.connect(dst.host(), dst.port()).addListener((ChannelFutureListener) dstFuture -> {
+            if (dstFuture.isSuccess())  {
+                this.bootstrap.connect(SERVER_ADDRESS).addListener((ChannelFutureListener) serverFuture -> {
+                    serverFuture.channel().pipeline().get(SslHandler.class).handshakeFuture().addListener(f -> {
+                        serverFuture.channel().writeAndFlush(serverFuture.channel().alloc().ioBuffer(8).writeLong(remoteId));
+                        bindChannels(dstFuture.channel(), serverFuture.channel());
+                    });
+                });
+            } else {
+                //TODO: do something
+                System.err.printf("unable to connect to %s!\n", dst);
+            }
+        });
     }
 }
