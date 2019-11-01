@@ -15,6 +15,7 @@
 
 package net.daporkchop.loopback.server.frontend;
 
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import lombok.NonNull;
@@ -27,6 +28,7 @@ import static net.daporkchop.loopback.util.Constants.*;
  * @author DaPorkchop_
  */
 @RequiredArgsConstructor
+@ChannelHandler.Sharable
 public final class FrontendTransportHandler extends ChannelInboundHandlerAdapter {
     @NonNull
     protected final ServerControlHandler handler;

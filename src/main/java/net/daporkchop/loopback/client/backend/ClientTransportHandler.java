@@ -15,15 +15,43 @@
 
 package net.daporkchop.loopback.client.backend;
 
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.handler.ssl.SslHandshakeCompletionEvent;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+import net.daporkchop.loopback.client.Client;
 
 import static net.daporkchop.loopback.util.Constants.*;
 
 /**
  * @author DaPorkchop_
  */
+@RequiredArgsConstructor
+@ChannelHandler.Sharable
 public final class ClientTransportHandler extends ChannelInboundHandlerAdapter {
+    @NonNull
+    protected final Client client;
+
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        if (evt instanceof SslHandshakeCompletionEvent) {
+            if (evt == SslHandshakeCompletionEvent.SUCCESS) {
+                ctx.channel().attr(ATTR_LOG).get().debug("ssl handshake success (data)");
+                ctx.channel().writeAndFlush(ctx.alloc().ioBuffer(PASSWORD_BYTES + 8)
+                        .writeBytes(this.client.password())
+                        .writeLong(this.client.controlChannel().attr(ATTR_ID).get()));
+                ctx.channel().writeAndFlush(ctx.alloc().ioBuffer(8)
+                        .writeLong(ctx.channel().attr(ATTR_ID).getAndSet(null)));
+            } else {
+                ctx.channel().attr(ATTR_LOG).get().alert(((SslHandshakeCompletionEvent) evt).cause());
+            }
+        }
+
+        super.userEventTriggered(ctx, evt);
+    }
+
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         if (!ctx.channel().hasAttr(ATTR_PAIR)) throw new IllegalStateException();
@@ -34,6 +62,7 @@ public final class ClientTransportHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
         if (ctx.channel().hasAttr(ATTR_PAIR)) ctx.channel().attr(ATTR_PAIR).get().close();
+        ctx.channel().attr(ATTR_LOG).get().debug("connection closed (data)");
 
         super.channelUnregistered(ctx);
     }

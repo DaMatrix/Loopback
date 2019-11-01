@@ -26,6 +26,7 @@ import io.netty.util.collection.LongObjectMap;
 import io.netty.util.concurrent.Future;
 import lombok.Getter;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import net.daporkchop.loopback.server.backend.BackendChannelInitializer;
 import net.daporkchop.loopback.server.backend.ServerControlHandler;
 import net.daporkchop.loopback.util.Endpoint;
@@ -38,6 +39,7 @@ import static net.daporkchop.loopback.util.Constants.*;
 /**
  * @author DaPorkchop_
  */
+@RequiredArgsConstructor
 public final class Server implements Endpoint {
     protected ServerChannel backendListener;
     protected ChannelGroup  allChannels;
@@ -45,7 +47,8 @@ public final class Server implements Endpoint {
     protected LongObjectMap<ServerControlHandler> controlChannelsById;
 
     @Getter
-    protected final byte[] password = new byte[PASSWORD_BYTES];
+    @NonNull
+    protected final byte[] password;
 
     @Override
     public synchronized void start() {
@@ -93,7 +96,7 @@ public final class Server implements Endpoint {
         if (this.backendListener == null || this.allChannels == null) throw new IllegalStateException();
 
         ServerControlHandler handler = this.controlChannelsById.get(id);
-        if (handler == null) throw new IllegalArgumentException();
+        if (handler == null) throw new IllegalArgumentException(Long.toUnsignedString(id));
         return handler;
     }
 }

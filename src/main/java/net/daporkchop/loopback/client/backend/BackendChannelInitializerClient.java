@@ -55,7 +55,7 @@ public final class BackendChannelInitializerClient extends ClientChannelInitiali
     public BackendChannelInitializerClient(@NonNull Client client) {
         super(client);
 
-        this.transport = new ClientTransportHandler();
+        this.transport = new ClientTransportHandler(client);
     }
 
     @Override

@@ -31,6 +31,7 @@ import io.netty.util.concurrent.Future;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import net.daporkchop.lib.unsafe.PUnsafe;
 import net.daporkchop.loopback.client.backend.BackendChannelInitializerClient;
 import net.daporkchop.loopback.client.target.TargetChannelInitializer;
@@ -47,16 +48,19 @@ import static net.daporkchop.loopback.util.Constants.*;
 /**
  * @author DaPorkchop_
  */
+@RequiredArgsConstructor
 @Getter
 public final class Client implements Endpoint {
     private static final Pattern PATTERN_ADD_COMMAND = Pattern.compile("^add ([0-9]+) ([^:]+):([0-9]+)$");
     public static final InetSocketAddress SERVER_ADDRESS = new InetSocketAddress("localhost", 59989);
 
+    @NonNull
+    protected final byte[] password;
+
     protected ChannelGroup channels;
     protected Bootstrap bootstrap;
     protected Bootstrap targetBootstrap;
 
-    @Getter(AccessLevel.NONE)
     private volatile SocketChannel controlChannel;
 
     //private final ChannelFuture[] waiting = new ChannelFuture[CLIENT_READY_SOCKETS];
@@ -67,7 +71,7 @@ public final class Client implements Endpoint {
     public synchronized void start() {
         if (this.channels != null) throw new IllegalStateException();
 
-        this.channels = new DefaultChannelGroup(GROUP.next(), true);
+        this.channels = new DefaultChannelGroup(GROUP.next(), false);
         this.targetAddresses = new IntObjectHashMap<>();
 
         this.bootstrap = new Bootstrap().group(GROUP)
@@ -121,8 +125,8 @@ public final class Client implements Endpoint {
         this.targetBootstrap.connect(dst.host(), dst.port()).addListener((ChannelFutureListener) dstFuture -> {
             if (dstFuture.isSuccess())  {
                 this.bootstrap.connect(SERVER_ADDRESS).addListener((ChannelFutureListener) serverFuture -> {
+                    serverFuture.channel().attr(ATTR_ID).set(remoteId);
                     serverFuture.channel().pipeline().get(SslHandler.class).handshakeFuture().addListener(f -> {
-                        serverFuture.channel().writeAndFlush(serverFuture.channel().alloc().ioBuffer(8).writeLong(remoteId));
                         bindChannels(dstFuture.channel(), serverFuture.channel());
                     });
                 });

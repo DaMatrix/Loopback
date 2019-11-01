@@ -18,6 +18,7 @@ package net.daporkchop.loopback.server.backend;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.ChannelDuplexHandler;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.ReferenceCountUtil;
 import lombok.Getter;
@@ -31,6 +32,7 @@ import static net.daporkchop.loopback.util.Constants.*;
  */
 @RequiredArgsConstructor
 @Getter
+@ChannelHandler.Sharable
 public final class ServerBackendTransportHandler extends ChannelDuplexHandler {
     @NonNull
     protected final ServerControlHandler control;

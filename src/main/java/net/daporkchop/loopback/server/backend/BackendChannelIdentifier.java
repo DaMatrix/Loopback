@@ -16,6 +16,7 @@
 package net.daporkchop.loopback.server.backend;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.ReferenceCountUtil;
@@ -32,6 +33,7 @@ import static net.daporkchop.loopback.util.Constants.*;
  * @author DaPorkchop_
  */
 @RequiredArgsConstructor
+@ChannelHandler.Sharable
 public final class BackendChannelIdentifier extends ChannelInboundHandlerAdapter {
     @NonNull
     protected final Server server;

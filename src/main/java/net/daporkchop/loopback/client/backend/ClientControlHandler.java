@@ -45,7 +45,8 @@ public final class ClientControlHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        ctx.channel().attr(ATTR_LOG).get().info("Disconnected!");
+        ctx.channel().attr(ATTR_LOG).get().info("Control channel disconnected!");
+        this.client.channels().close(); //disconnect everything
 
         super.channelInactive(ctx);
     }
@@ -54,8 +55,8 @@ public final class ClientControlHandler extends ChannelInboundHandlerAdapter {
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         if (evt instanceof SslHandshakeCompletionEvent) {
             if (evt == SslHandshakeCompletionEvent.SUCCESS)    {
-                ctx.channel().attr(ATTR_LOG).get().debug("ssl handshake success");
-                ctx.channel().writeAndFlush(Unpooled.wrappedBuffer(new byte[PASSWORD_BYTES]));
+                ctx.channel().attr(ATTR_LOG).get().debug("ssl handshake success (control)");
+                ctx.channel().writeAndFlush(Unpooled.wrappedBuffer(this.client.password()));
 
                 this.client.targetAddresses().forEach((srcPort, addr) -> { //add any ports that are registered already
                     ctx.channel().writeAndFlush(ctx.alloc().ioBuffer(3).writeByte(COMMAND_OPEN).writeShort(srcPort));
@@ -75,7 +76,10 @@ public final class ClientControlHandler extends ChannelInboundHandlerAdapter {
             ByteBuf buf = (ByteBuf) msg;
 
             if (ctx.channel().hasAttr(ATTR_ID)) {
-                this.client.handleConnectionRequest(buf.readLong(), buf.readUnsignedShort());
+                long id = buf.readLong();
+                int port = buf.readUnsignedShort();
+                ctx.channel().attr(ATTR_LOG).get().info("Received connection request for channel ID %d on port %d", id, port);
+                this.client.handleConnectionRequest(id, port);
             } else {
                 ctx.channel().attr(ATTR_ID).set(buf.readLong());
                 ctx.channel().attr(ATTR_LOG).get().info("Control channel connected! ID: %d", ctx.channel().attr(ATTR_ID).get());

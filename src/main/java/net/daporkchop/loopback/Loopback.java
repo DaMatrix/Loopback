@@ -15,12 +15,14 @@
 
 package net.daporkchop.loopback;
 
+import net.daporkchop.lib.hash.util.Digest;
 import net.daporkchop.lib.logging.LogAmount;
 import net.daporkchop.lib.logging.Logging;
 import net.daporkchop.loopback.client.Client;
 import net.daporkchop.loopback.server.Server;
 import net.daporkchop.loopback.util.Endpoint;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
 import static net.daporkchop.loopback.util.Constants.*;
@@ -32,7 +34,8 @@ public final class Loopback {
     public static void main(String... args) {
         Logging.logger.enableANSI().redirectStdOut().setLogAmount(LogAmount.DEBUG);
 
-        Endpoint endpoint = args.length == 0 ? new Client() : new Server();
+        byte[] hash = Digest.SHA_256.hash(args[0].getBytes(StandardCharsets.UTF_8)).getHash();
+        Endpoint endpoint = args.length == 1 ? new Client(hash) : new Server(hash);
         try {
             endpoint.start();
 
