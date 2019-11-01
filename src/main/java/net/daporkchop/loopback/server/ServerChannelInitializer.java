@@ -22,6 +22,8 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import net.daporkchop.lib.logging.Logging;
 
+import java.util.concurrent.TimeUnit;
+
 import static net.daporkchop.loopback.util.Constants.*;
 
 /**
@@ -36,5 +38,13 @@ public abstract class ServerChannelInitializer extends ChannelInitializer<Socket
     @Override
     protected void initChannel(SocketChannel channel) throws Exception {
         this.server.allChannels.add(channel); //add to channel group so that we can bulk-disconnect all channels when we shut down
+
+        channel.eventLoop().schedule(() -> {
+            synchronized (channel) {//close channel if bound attribute is not yet set
+                if (channel.isRegistered() && !channel.hasAttr(ATTR_BOUND)) {
+                    channel.close();
+                }
+            }
+        }, SERVER_CONNECTION_TIMEOUT, TimeUnit.MILLISECONDS);
     }
 }

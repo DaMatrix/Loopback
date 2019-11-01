@@ -18,6 +18,7 @@ package net.daporkchop.loopback.common;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.unix.Errors;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import net.daporkchop.lib.logging.Logging;
@@ -52,7 +53,9 @@ public final class CommonHandler extends ChannelInboundHandlerAdapter {
     //print exception to logger and close channel
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        ctx.channel().attr(ATTR_LOG).get().alert(cause);
+        if (!(cause instanceof Errors.NativeIoException))   {
+            ctx.channel().attr(ATTR_LOG).get().alert(cause);
+        }
         ctx.channel().close();
     }
 }

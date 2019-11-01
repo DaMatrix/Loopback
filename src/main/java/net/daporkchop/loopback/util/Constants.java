@@ -38,6 +38,8 @@ import net.daporkchop.lib.logging.Logging;
  */
 @UtilityClass
 public class Constants {
+    public final long SERVER_CONNECTION_TIMEOUT = 10000L;
+
     public final EventLoopGroup GROUP = Epoll.isAvailable()
             ? new EpollEventLoopGroup(Runtime.getRuntime().availableProcessors())
             : new NioEventLoopGroup(Runtime.getRuntime().availableProcessors());
@@ -48,6 +50,7 @@ public class Constants {
     public final AttributeKey<Channel> ATTR_PAIR = AttributeKey.newInstance("loopback_pair");
     public final AttributeKey<Long>    ATTR_ID   = AttributeKey.newInstance("loopback_id");
     public final AttributeKey<Logger>  ATTR_LOG  = AttributeKey.newInstance("loopback_log");
+    public final AttributeKey<Boolean>  ATTR_BOUND  = AttributeKey.newInstance("loopback_bound");
 
     public final ChannelFutureListener DO_READ_HANDLER = future -> future.channel().attr(ATTR_PAIR).get().read();
 
@@ -58,13 +61,19 @@ public class Constants {
     public final int COMMAND_OPEN  = 0;
     public final int COMMAND_CLOSE = 1;
 
-    public final int CLIENT_READY_SOCKETS = 3;
+    public final int CLIENT_READY_SOCKETS = 3; //TODO: implement this
 
     @SuppressWarnings("deprecation")
     public void bindChannels(@NonNull Channel backend, @NonNull Channel incoming) {
-        backend.attr(ATTR_PAIR).set(incoming);
-        incoming.attr(ATTR_PAIR).set(backend);
-        incoming.read();
-        backend.read();
+        synchronized (backend) {
+            synchronized (incoming) {
+                backend.attr(ATTR_BOUND).set(Boolean.TRUE);
+                incoming.attr(ATTR_BOUND).set(Boolean.TRUE);
+                backend.attr(ATTR_PAIR).set(incoming);
+                incoming.attr(ATTR_PAIR).set(backend);
+                backend.read();
+                incoming.read();
+            }
+        }
     }
 }

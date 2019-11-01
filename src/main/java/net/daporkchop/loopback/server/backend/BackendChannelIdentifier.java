@@ -72,7 +72,11 @@ public final class BackendChannelIdentifier extends ChannelInboundHandlerAdapter
                     this.server.getControlChannel(buf.getLong(PASSWORD_BYTES)).backendChannel(ctx.channel());
                     ctx.channel().attr(ATTR_LOG).get().debug("valid password+id (data)");
                     break;
+                default:
+                    throw new IllegalStateException();
             }
+
+            ctx.channel().attr(ATTR_BOUND).set(Boolean.TRUE);
         } finally {
             ReferenceCountUtil.release(msg);
         }
