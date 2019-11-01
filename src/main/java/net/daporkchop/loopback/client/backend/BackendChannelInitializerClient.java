@@ -25,9 +25,9 @@ import lombok.NonNull;
 import net.daporkchop.lib.unsafe.PUnsafe;
 import net.daporkchop.loopback.client.Client;
 import net.daporkchop.loopback.client.ClientChannelInitializer;
+import net.daporkchop.loopback.common.CommonHandler;
 
 import javax.net.ssl.SSLException;
-import java.net.InetSocketAddress;
 
 import static net.daporkchop.loopback.util.Constants.*;
 
@@ -77,5 +77,7 @@ public final class BackendChannelInitializerClient extends ClientChannelInitiali
 
             channel.pipeline().addLast("handle", this.transport);
         }
+
+        channel.pipeline().addLast("common", CommonHandler.INSTANCE);
     }
 }

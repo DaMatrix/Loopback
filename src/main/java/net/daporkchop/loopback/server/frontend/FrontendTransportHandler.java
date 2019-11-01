@@ -46,11 +46,4 @@ public final class FrontendTransportHandler extends ChannelInboundHandlerAdapter
 
         ctx.channel().attr(ATTR_PAIR).get().writeAndFlush(msg).addListener(DO_READ_HANDLER);
     }
-
-    @Override
-    public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-        if (ctx.channel().hasAttr(ATTR_PAIR)) ctx.channel().attr(ATTR_PAIR).get().close();
-
-        super.channelUnregistered(ctx);
-    }
 }

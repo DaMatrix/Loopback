@@ -81,6 +81,7 @@ public final class Client implements Endpoint {
                 .option(ChannelOption.AUTO_READ, false)
                 .option(ChannelOption.SO_KEEPALIVE, true)
                 .option(ChannelOption.TCP_NODELAY, true)
+                .attr(ATTR_LOG, DEFAULT_CHANNEL_LOGGER)
                 .remoteAddress(SERVER_ADDRESS);
 
         this.bootstrap.connect().syncUninterruptibly();

@@ -56,12 +56,4 @@ public final class ServerBackendTransportHandler extends ChannelDuplexHandler {
             }
         }
     }
-
-    @Override
-    public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-        if (ctx.channel().hasAttr(ATTR_PAIR))   {
-            ctx.channel().attr(ATTR_PAIR).get().close();
-        }
-        super.channelUnregistered(ctx);
-    }
 }

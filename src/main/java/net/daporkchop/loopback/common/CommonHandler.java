@@ -13,32 +13,46 @@
  *
  */
 
-package net.daporkchop.loopback.server.frontend;
+package net.daporkchop.loopback.common;
 
-import io.netty.channel.socket.SocketChannel;
-import lombok.NonNull;
-import net.daporkchop.loopback.common.CommonHandler;
-import net.daporkchop.loopback.server.ServerChannelInitializer;
-import net.daporkchop.loopback.server.backend.ServerControlHandler;
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+import net.daporkchop.lib.logging.Logging;
+
+import static net.daporkchop.loopback.util.Constants.*;
 
 /**
  * @author DaPorkchop_
  */
-public final class FrontendChannelInitializer extends ServerChannelInitializer {
-    protected final FrontendTransportHandler transport;
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+@ChannelHandler.Sharable
+public final class CommonHandler extends ChannelInboundHandlerAdapter {
+    public static final CommonHandler INSTANCE = new CommonHandler();
 
-    public FrontendChannelInitializer(@NonNull ServerControlHandler control) {
-        super(control.server());
+    //set logger
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        ctx.channel().attr(ATTR_LOG).set(Logging.logger.channel(ctx.channel().remoteAddress().toString()));
 
-        this.transport = new FrontendTransportHandler(control);
+        super.channelActive(ctx);
     }
 
+    //close paired channel, if any
     @Override
-    protected void initChannel(SocketChannel channel) throws Exception {
-        super.initChannel(channel);
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        if (ctx.channel().hasAttr(ATTR_PAIR)) ctx.channel().attr(ATTR_PAIR).get().close();
+        ctx.channel().attr(ATTR_LOG).get().debug("channel closed");
 
-        channel.pipeline()
-                .addLast("handle", this.transport)
-                .addLast("common", CommonHandler.INSTANCE);
+        super.channelUnregistered(ctx);
+    }
+
+    //print exception to logger and close channel
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        ctx.channel().attr(ATTR_LOG).get().alert(cause);
+        ctx.channel().close();
     }
 }

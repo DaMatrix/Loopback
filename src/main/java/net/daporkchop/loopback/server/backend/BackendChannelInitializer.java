@@ -22,6 +22,7 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
 import lombok.NonNull;
+import net.daporkchop.loopback.common.CommonHandler;
 import net.daporkchop.loopback.server.Server;
 import net.daporkchop.loopback.server.ServerChannelInitializer;
 
@@ -61,6 +62,7 @@ public final class BackendChannelInitializer extends ServerChannelInitializer {
 
         channel.pipeline()
                 .addLast("ssl", new SslHandler(CONTEXT.newEngine(channel.alloc()), false))
-                .addLast("handle", this.identifier);
+                .addLast("handle", this.identifier)
+                .addLast("common", CommonHandler.INSTANCE);
     }
 }

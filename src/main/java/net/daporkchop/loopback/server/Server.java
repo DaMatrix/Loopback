@@ -61,9 +61,9 @@ public final class Server implements Endpoint {
                 .channelFactory(SERVER_CHANNEL_FACTORY)
                 .childHandler(new BackendChannelInitializer(this))
                 .childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
-                //.childOption(ChannelOption.AUTO_READ, false)
                 .childOption(ChannelOption.TCP_NODELAY, true)
                 .childOption(ChannelOption.SO_KEEPALIVE, true)
+                .childAttr(ATTR_LOG, DEFAULT_CHANNEL_LOGGER)
                 .bind(59989).syncUninterruptibly().channel();
         this.allChannels.add(this.backendListener);
     }

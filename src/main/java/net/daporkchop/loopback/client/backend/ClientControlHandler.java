@@ -37,13 +37,6 @@ public final class ClientControlHandler extends ChannelInboundHandlerAdapter {
     protected final Client client;
 
     @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        ctx.channel().attr(ATTR_LOG).set(Logging.logger.channel(ctx.channel().remoteAddress().toString()));
-
-        super.channelActive(ctx);
-    }
-
-    @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         ctx.channel().attr(ATTR_LOG).get().info("Control channel disconnected!");
         this.client.channels().close(); //disconnect everything

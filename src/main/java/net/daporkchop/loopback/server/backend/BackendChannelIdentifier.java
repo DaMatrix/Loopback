@@ -77,12 +77,4 @@ public final class BackendChannelIdentifier extends ChannelInboundHandlerAdapter
             ReferenceCountUtil.release(msg);
         }
     }
-
-    @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        ctx.channel().attr(ATTR_LOG).set(Logging.logger.channel(ctx.channel().remoteAddress().toString()));
-        ctx.channel().attr(ATTR_LOG).get().debug("channelActive");
-
-        super.channelActive(ctx);
-    }
 }

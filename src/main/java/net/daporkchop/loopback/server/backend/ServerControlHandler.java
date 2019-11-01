@@ -31,6 +31,7 @@ import io.netty.util.collection.IntObjectMap;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import net.daporkchop.lib.logging.Logging;
 import net.daporkchop.loopback.server.Server;
 import net.daporkchop.loopback.server.frontend.FrontendChannelInitializer;
 
@@ -99,11 +100,13 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
                         .childOption(ChannelOption.AUTO_READ, false)
                         .childOption(ChannelOption.TCP_NODELAY, true)
                         .childOption(ChannelOption.SO_KEEPALIVE, true)
+                        .childAttr(ATTR_LOG, DEFAULT_CHANNEL_LOGGER)
                         .bind(port)
                         .addListener((ChannelFutureListener) f -> {
                             if (this.boundChannels.putIfAbsent(port, (ServerChannel) f.channel()) != null || !this.allChannels.add(f.channel())) {
                                 throw new IllegalStateException();
                             }
+                            Logging.logger.success("Redirecting connections from port %d!", port);
                         });
             }
             break;
@@ -125,7 +128,6 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
     public synchronized void backendChannelReady(@NonNull Channel channel, long id) {
         Channel waiting = this.waitingChannels.set((int) id, null);
         if (waiting == null) throw new NullPointerException(Long.toUnsignedString(id));
-        channel.attr(ATTR_LOG).get().info("Bound to %s", waiting.remoteAddress());
         bindChannels(channel, waiting);
     }
 

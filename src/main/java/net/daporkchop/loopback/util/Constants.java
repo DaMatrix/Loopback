@@ -51,6 +51,8 @@ public class Constants {
 
     public final ChannelFutureListener DO_READ_HANDLER = future -> future.channel().attr(ATTR_PAIR).get().read();
 
+    public final Logger DEFAULT_CHANNEL_LOGGER = Logging.logger.channel("Unknown Channel");
+
     public final int PASSWORD_BYTES = 256 >>> 3; // sha256 is 256 bits long
 
     public final int COMMAND_OPEN  = 0;

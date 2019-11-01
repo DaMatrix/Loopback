@@ -35,7 +35,6 @@ public abstract class ServerChannelInitializer extends ChannelInitializer<Socket
 
     @Override
     protected void initChannel(SocketChannel channel) throws Exception {
-        channel.attr(ATTR_LOG).set(Logging.logger.channel(channel.toString()));
         this.server.allChannels.add(channel); //add to channel group so that we can bulk-disconnect all channels when we shut down
     }
 }

@@ -21,6 +21,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.ssl.SslHandshakeCompletionEvent;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import net.daporkchop.lib.logging.Logging;
 import net.daporkchop.loopback.client.Client;
 
 import static net.daporkchop.loopback.util.Constants.*;
@@ -57,13 +58,5 @@ public final class ClientTransportHandler extends ChannelInboundHandlerAdapter {
         if (!ctx.channel().hasAttr(ATTR_PAIR)) throw new IllegalStateException();
 
         ctx.channel().attr(ATTR_PAIR).get().writeAndFlush(msg).addListener(DO_READ_HANDLER);
-    }
-
-    @Override
-    public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-        if (ctx.channel().hasAttr(ATTR_PAIR)) ctx.channel().attr(ATTR_PAIR).get().close();
-        ctx.channel().attr(ATTR_LOG).get().debug("connection closed (data)");
-
-        super.channelUnregistered(ctx);
     }
 }

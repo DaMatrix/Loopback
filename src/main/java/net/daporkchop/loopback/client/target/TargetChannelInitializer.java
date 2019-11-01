@@ -19,6 +19,7 @@ import io.netty.channel.socket.SocketChannel;
 import lombok.NonNull;
 import net.daporkchop.loopback.client.Client;
 import net.daporkchop.loopback.client.ClientChannelInitializer;
+import net.daporkchop.loopback.common.CommonHandler;
 
 /**
  * @author DaPorkchop_
@@ -36,6 +37,8 @@ public final class TargetChannelInitializer extends ClientChannelInitializer {
     protected void initChannel(SocketChannel channel) throws Exception {
         super.initChannel(channel);
 
-        channel.pipeline().addLast("handle", this.handler);
+        channel.pipeline()
+                .addLast("handle", this.handler)
+                .addLast("common", CommonHandler.INSTANCE);
     }
 }

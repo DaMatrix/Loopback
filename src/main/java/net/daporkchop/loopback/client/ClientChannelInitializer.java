@@ -35,7 +35,6 @@ public abstract class ClientChannelInitializer extends ChannelInitializer<Socket
 
     @Override
     protected void initChannel(SocketChannel channel) throws Exception {
-        channel.attr(ATTR_LOG).set(Logging.logger.channel(channel.toString()));
         this.client.channels.add(channel);
     }
 }
