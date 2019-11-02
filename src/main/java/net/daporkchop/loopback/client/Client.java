@@ -55,10 +55,11 @@ import static net.daporkchop.loopback.util.Constants.*;
 @Getter
 public final class Client implements Endpoint {
     private static final Pattern PATTERN_ADD_COMMAND = Pattern.compile("^add ([0-9]+) ([^:]+):([0-9]+)$");
-    public static final InetSocketAddress SERVER_ADDRESS = new InetSocketAddress("localhost", 59989);
 
     @NonNull
     protected final byte[] password;
+    @NonNull
+    protected final Addr serverAddress;
 
     protected ChannelGroup channels;
     protected Bootstrap bootstrap;
@@ -84,10 +85,9 @@ public final class Client implements Endpoint {
                 .option(ChannelOption.AUTO_READ, false)
                 .option(ChannelOption.SO_KEEPALIVE, true)
                 .option(ChannelOption.TCP_NODELAY, true)
-                .attr(ATTR_LOG, DEFAULT_CHANNEL_LOGGER)
-                .remoteAddress(SERVER_ADDRESS);
+                .attr(ATTR_LOG, DEFAULT_CHANNEL_LOGGER);
 
-        this.bootstrap.connect().syncUninterruptibly();
+        this.bootstrap.connect(this.serverAddress.host(), this.serverAddress.port()).syncUninterruptibly();
 
         this.targetBootstrap = this.bootstrap.clone()
                 .remoteAddress(null)
@@ -128,7 +128,7 @@ public final class Client implements Endpoint {
         //ChannelFuture toDst = this.targetBootstrap.connect(dst.host(), dst.port());
         this.targetBootstrap.connect(dst.host(), dst.port()).addListener((ChannelFutureListener) dstFuture -> {
             if (dstFuture.isSuccess())  {
-                this.bootstrap.connect(SERVER_ADDRESS).addListener((ChannelFutureListener) serverFuture -> {
+                this.bootstrap.connect(this.serverAddress.host(), this.serverAddress.port()).addListener((ChannelFutureListener) serverFuture -> {
                     serverFuture.channel().pipeline().get(SslHandler.class).handshakeFuture().addListener(f -> {
                         serverFuture.channel().writeAndFlush(serverFuture.channel().alloc().ioBuffer(8).writeLong(remoteId));
                         bindChannels(dstFuture.channel(), serverFuture.channel());

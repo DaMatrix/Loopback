@@ -50,6 +50,8 @@ public final class Server implements Endpoint {
     @NonNull
     protected final byte[] password;
 
+    protected final int port;
+
     @Override
     public synchronized void start() {
         if (this.backendListener != null || this.allChannels != null) throw new IllegalStateException();

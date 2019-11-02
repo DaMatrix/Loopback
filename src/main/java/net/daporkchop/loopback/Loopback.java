@@ -20,10 +20,13 @@ import net.daporkchop.lib.logging.LogAmount;
 import net.daporkchop.lib.logging.Logging;
 import net.daporkchop.loopback.client.Client;
 import net.daporkchop.loopback.server.Server;
+import net.daporkchop.loopback.util.Addr;
 import net.daporkchop.loopback.util.Endpoint;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static net.daporkchop.loopback.util.Constants.*;
 
@@ -31,19 +34,52 @@ import static net.daporkchop.loopback.util.Constants.*;
  * @author DaPorkchop_
  */
 public final class Loopback {
+    private static void displayHelp() {
+        Logging.logger.info("Usage:")
+                .info("  java -jar loopback.jar client <password> <address>:<port>")
+                .info("or")
+                .info("  java -jar loopback.jar server <password> <port>");
+        System.exit(0);
+    }
+
     public static void main(String... args) {
         Logging.logger.enableANSI().redirectStdOut().setLogAmount(LogAmount.DEBUG);
+        if (args.length != 3) displayHelp();
 
-        byte[] hash = Digest.SHA_256.hash(args[0].getBytes(StandardCharsets.UTF_8)).getHash();
-        Endpoint endpoint = args.length == 1 ? new Client(hash) : new Server(hash);
+
+        Endpoint endpoint = null;
+
         try {
+            byte[] hash = Digest.SHA_256.hash(args[1].getBytes(StandardCharsets.UTF_8)).getHash();
+            switch (args[0]) {
+                case "client": {
+                    Matcher matcher = Pattern.compile("^([^:]+):([0-9]+)$").matcher(args[2]);
+                    if (!matcher.find()) throw new IllegalArgumentException(String.format("Invalid address:port (\"%s\")", args[2]));
+                    endpoint = new Client(hash, new Addr(matcher.group(1), Integer.parseInt(matcher.group(2))));
+                }
+                break;
+                case "server":
+                    endpoint = new Server(hash, Integer.parseInt(args[2]));
+                    break;
+                default:
+                    throw new IllegalArgumentException(String.format("Invalid mode (\"%s\")", args[0]));
+            }
+        } catch (RuntimeException e) {
+            Logging.logger.error(e.getClass().getCanonicalName());
+            if (e.getMessage() != null) Logging.logger.error(e.getMessage());
+            displayHelp();
+        }
+
+        try {
+            Logging.logger.info("Starting...");
             endpoint.start();
 
             try (Scanner scanner = new Scanner(System.in)) {
-                System.out.println("Started! Type \"stop\" to stop.");
+                Logging.logger.success("Started! Type \"stop\" to stop.");
                 while (!endpoint.handleCommand(scanner.nextLine())) ;
-                System.out.println("Stopping...");
+                Logging.logger.info("Stopping...");
             }
+            Logging.logger.success("Stopped!");
         } finally {
             try {
                 endpoint.close().syncUninterruptibly();
