@@ -18,6 +18,8 @@ package net.daporkchop.loopback.util;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.concurrent.Future;
 import lombok.NonNull;
+import net.daporkchop.lib.logging.Logger;
+import net.daporkchop.lib.logging.Logging;
 
 /**
  * @author DaPorkchop_
@@ -25,9 +27,17 @@ import lombok.NonNull;
 public interface Endpoint {
     void start();
 
+    Future<Void> close();
+
     default boolean handleCommand(@NonNull String command) {
-        return "stop".equalsIgnoreCase(command);
+        if ("stop".equals(command)) return true;
+
+        this.printHelp(Logging.logger);
+        return false;
     }
 
-    Future<Void> close();
+    default void printHelp(@NonNull Logger logger)  {
+        logger.info("Unknown command! Available commands:")
+                .info("  stop");
+    }
 }

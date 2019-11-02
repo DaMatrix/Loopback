@@ -60,7 +60,7 @@ public final class BackendChannelIdentifier extends ChannelInboundHandlerAdapter
             byte[] password = this.server.password();
             for (int i = 0; i < PASSWORD_BYTES; i++)    {
                 if (buf.getByte(i) != password[i])  {
-                    ctx.channel().attr(ATTR_LOG).get().error("Invalid password!");
+                    ctx.channel().attr(ATTR_LOG).get().warn("Attempted to authenticate with invalid password!");
                     ctx.channel().close();
                     return;
                 }

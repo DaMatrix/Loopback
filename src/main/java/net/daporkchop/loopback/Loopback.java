@@ -43,9 +43,8 @@ public final class Loopback {
     }
 
     public static void main(String... args) {
-        Logging.logger.enableANSI().redirectStdOut().setLogAmount(LogAmount.DEBUG);
+        Logging.logger.enableANSI().redirectStdOut()/*.setLogAmount(LogAmount.DEBUG)*/;
         if (args.length != 3) displayHelp();
-
 
         Endpoint endpoint = null;
 
@@ -53,7 +52,7 @@ public final class Loopback {
             byte[] hash = Digest.SHA_256.hash(args[1].getBytes(StandardCharsets.UTF_8)).getHash();
             switch (args[0]) {
                 case "client": {
-                    Matcher matcher = Pattern.compile("^([^:]+):([0-9]+)$").matcher(args[2]);
+                    Matcher matcher = Pattern.compile("^([^:]+):([0-9]{1,4}|[0-6][0-5]{2}[0-3][0-5])$").matcher(args[2]);
                     if (!matcher.find()) throw new IllegalArgumentException(String.format("Invalid address:port (\"%s\")", args[2]));
                     endpoint = new Client(hash, new Addr(matcher.group(1), Integer.parseInt(matcher.group(2))));
                 }

@@ -78,7 +78,8 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
 
         this.channel.writeAndFlush(ctx.alloc().ioBuffer(8).writeLong(this.id)); //send self channel ID to remote server
 
-        this.channel.eventLoop().scheduleAtFixedRate(() -> this.allChannels.close(TIMEOUT_MATCHER), 20L, 5L, TimeUnit.SECONDS);
+        //check for timed out channels every 5 seconds and close them
+        this.channel.eventLoop().scheduleAtFixedRate(() -> this.allChannels.close(TIMEOUT_MATCHER), 15L, 5L, TimeUnit.SECONDS);
     }
 
     @Override

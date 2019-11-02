@@ -16,14 +16,24 @@
 package net.daporkchop.loopback.util;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 
 /**
  * @author DaPorkchop_
  */
-@Data
+@RequiredArgsConstructor
+@Getter
+@EqualsAndHashCode
 public final class Addr {
     @NonNull
     protected final String host;
     protected final int port;
+
+    @Override
+    public String toString() {
+        return String.format("%s:%d", this.host, this.port);
+    }
 }

@@ -17,8 +17,6 @@ package net.daporkchop.loopback.client;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.PooledByteBufAllocator;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.group.ChannelGroup;
@@ -28,21 +26,16 @@ import io.netty.handler.ssl.SslHandler;
 import io.netty.util.collection.IntObjectHashMap;
 import io.netty.util.collection.IntObjectMap;
 import io.netty.util.concurrent.Future;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import net.daporkchop.lib.unsafe.PUnsafe;
+import net.daporkchop.lib.logging.Logger;
+import net.daporkchop.lib.logging.Logging;
 import net.daporkchop.loopback.client.backend.BackendChannelInitializerClient;
 import net.daporkchop.loopback.client.target.TargetChannelInitializer;
 import net.daporkchop.loopback.util.Addr;
 import net.daporkchop.loopback.util.Endpoint;
 
-import java.net.InetSocketAddress;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -54,16 +47,17 @@ import static net.daporkchop.loopback.util.Constants.*;
 @RequiredArgsConstructor
 @Getter
 public final class Client implements Endpoint {
-    private static final Pattern PATTERN_ADD_COMMAND = Pattern.compile("^add ([0-9]+) ([^:]+):([0-9]+)$");
+    private static final Pattern PATTERN_ADD_COMMAND    = Pattern.compile("^add ([0-9]{1,4}|[0-6][0-5]{2}[0-3][0-5]) ([^:]+):([0-9]{1,4}|[0-6][0-5]{2}[0-3][0-5])$");
+    private static final Pattern PATTERN_REMOVE_COMMAND = Pattern.compile("^remove ([0-9]{1,4}|[0-6][0-5]{2}[0-3][0-5])$");
 
     @NonNull
     protected final byte[] password;
     @NonNull
-    protected final Addr serverAddress;
+    protected final Addr   serverAddress;
 
     protected ChannelGroup channels;
-    protected Bootstrap bootstrap;
-    protected Bootstrap targetBootstrap;
+    protected Bootstrap    bootstrap;
+    protected Bootstrap    targetBootstrap;
 
     private volatile SocketChannel controlChannel;
 
@@ -108,26 +102,45 @@ public final class Client implements Endpoint {
     public synchronized boolean handleCommand(@NonNull String command) {
         if (this.channels == null) throw new IllegalStateException();
 
-        Matcher matcher = PATTERN_ADD_COMMAND.matcher(command);
-        if (matcher.find()) {
+        Matcher matcher;
+        if ((matcher = PATTERN_ADD_COMMAND.matcher(command)).find()) {
             int sourcePort = Integer.parseInt(matcher.group(1));
             String dstAddress = matcher.group(2);
             int dstPort = Integer.parseInt(matcher.group(3));
 
             this.targetAddresses.put(sourcePort, new Addr(dstAddress, dstPort));
             this.controlChannel.writeAndFlush(this.controlChannel.alloc().ioBuffer(3).writeByte(COMMAND_OPEN).writeShort(sourcePort));
+            return false;
+        } else if ((matcher = PATTERN_REMOVE_COMMAND.matcher(command)).find()) {
+            int sourcePort = Integer.parseInt(matcher.group(1));
+
+            if (this.targetAddresses.remove(sourcePort) == null) {
+                Logging.logger.error("No connection registered on port %d!", sourcePort);
+            } else {
+                this.controlChannel.writeAndFlush(this.controlChannel.alloc().ioBuffer(3).writeByte(COMMAND_CLOSE).writeShort(sourcePort));
+            }
+            return false;
         }
+
         return Endpoint.super.handleCommand(command);
     }
 
-    public synchronized void handleConnectionRequest(long remoteId, int srcPort)  {
+    @Override
+    public void printHelp(@NonNull Logger logger) {
+        Endpoint.super.printHelp(logger);
+        logger.info("  add <remote port> <local address>:<local port>")
+                .info("  remove <remote port>");
+    }
+
+    public synchronized void handleConnectionRequest(long remoteId, int srcPort) {
         Addr dst = this.targetAddresses.get(srcPort);
         if (dst == null) throw new IllegalArgumentException(Integer.toUnsignedString(srcPort));
 
+        //TODO: keep a certain number of channels open and ready at all times
         //ChannelFuture toServer = this.bootstrap.connect(SERVER_ADDRESS);
         //ChannelFuture toDst = this.targetBootstrap.connect(dst.host(), dst.port());
         this.targetBootstrap.connect(dst.host(), dst.port()).addListener((ChannelFutureListener) dstFuture -> {
-            if (dstFuture.isSuccess())  {
+            if (dstFuture.isSuccess()) {
                 this.bootstrap.connect(this.serverAddress.host(), this.serverAddress.port()).addListener((ChannelFutureListener) serverFuture -> {
                     serverFuture.channel().pipeline().get(SslHandler.class).handshakeFuture().addListener(f -> {
                         serverFuture.channel().writeAndFlush(serverFuture.channel().alloc().ioBuffer(8).writeLong(remoteId));
