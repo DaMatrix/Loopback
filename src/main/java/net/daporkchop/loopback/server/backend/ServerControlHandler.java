@@ -39,7 +39,6 @@ import net.daporkchop.loopback.server.frontend.FrontendChannelInitializer;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -58,7 +57,7 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
 
     protected final ServerBackendTransportHandler transportHandler = new ServerBackendTransportHandler(this);
 
-    private   List<Channel>                        waitingChannels;
+    private   List<Channel>               waitingChannels;
     private   ChannelGroup                allChannels;
     private   IntObjectMap<ServerChannel> boundChannels;
     protected Channel                     channel;
@@ -76,7 +75,7 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
 
         this.boundChannels = new IntObjectHashMap<>();
 
-        this.channel.writeAndFlush(ctx.alloc().ioBuffer(8).writeLong(this.id)); //send self channel ID to remote server
+        this.channel.writeAndFlush(ctx.alloc().ioBuffer(9).writeByte(CONTROL_HANDSHAKE).writeLong(this.id)); //send self channel ID to remote server
 
         //check for timed out channels every 5 seconds and close them
         this.channel.eventLoop().scheduleAtFixedRate(() -> this.allChannels.close(TIMEOUT_MATCHER), 15L, 5L, TimeUnit.SECONDS);
@@ -97,10 +96,11 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
             if (!(msg instanceof ByteBuf)) throw new IllegalArgumentException(PorkUtil.className(msg));
 
             ByteBuf buf = (ByteBuf) msg;
-            switch (buf.readByte() & 0xFF) {
-                case COMMAND_OPEN: {
+            int command = buf.readUnsignedByte();
+            switch (command) {
+                case CONTROL_ADD: {
                     int port = buf.readUnsignedShort();
-                    new ServerBootstrap().group(GROUP)
+                    ServerChannel channel = (ServerChannel) new ServerBootstrap().group(GROUP)
                             .channelFactory(SERVER_CHANNEL_FACTORY)
                             .childHandler(new FrontendChannelInitializer(this))
                             .childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
@@ -110,22 +110,45 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
                             .childAttr(ATTR_LOG, DEFAULT_CHANNEL_LOGGER)
                             .bind(port)
                             .addListener((ChannelFutureListener) f -> {
-                                ServerChannel channel = (ServerChannel) f.channel();
-                                if (this.boundChannels.putIfAbsent(port, channel) != null || !this.allChannels.add(channel)) {
-                                    throw new IllegalStateException();
+                                if (f.isSuccess()) {
+                                    this.channel.writeAndFlush(this.channel.alloc().ioBuffer(5)
+                                            .writeByte(CONTROL_RESULT)
+                                            .writeShort(port)
+                                            .writeByte(0).writeByte(1));
+                                    Logging.logger.success("Forwarding connections from port %d!", port);
+                                } else {
+                                    this.channel.writeAndFlush(this.channel.alloc().ioBuffer(5)
+                                            .writeByte(CONTROL_RESULT)
+                                            .writeShort(port)
+                                            .writeByte(0).writeByte(0));
+                                    Logging.logger.error("Failed to bind to %d!", port);
                                 }
-                                Logging.logger.success("Redirecting connections from port %d!", port);
-                            });
+                            }).channel();
+
+                    if (this.boundChannels.putIfAbsent(port, channel) != null || !this.allChannels.add(channel)) {
+                        throw new IllegalStateException();
+                    }
                 }
                 break;
-                case COMMAND_CLOSE: {
+                case CONTROL_REMOVE: {
                     int port = buf.readUnsignedShort();
                     ServerChannel toClose = this.boundChannels.remove(port);
                     if (toClose != null) { //we don't need to close the connections, they can be left open to be closed by the target application
                         toClose.close();
+                        this.channel.writeAndFlush(this.channel.alloc().ioBuffer(5)
+                                .writeByte(CONTROL_RESULT)
+                                .writeShort(port)
+                                .writeByte(1).writeByte(1));
+                    } else {
+                        this.channel.writeAndFlush(this.channel.alloc().ioBuffer(5)
+                                .writeByte(CONTROL_RESULT)
+                                .writeShort(port)
+                                .writeByte(1).writeByte(0));
                     }
                 }
                 break;
+                default:
+                    throw new IllegalArgumentException(String.format("Invalid command ID: %d", command));
             }
         } finally {
             ReferenceCountUtil.release(msg);
@@ -143,18 +166,20 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
     }
 
     public synchronized void incomingChannel(@NonNull Channel channel) {
-        int id = 0;
-        while (id < this.waitingChannels.size() && this.waitingChannels.get(id) != null)    {
-            id++;
-        }
-        if (id == this.waitingChannels.size())  {
+        int id = this.waitingChannels.indexOf(null);
+        if (id == -1) {
+            id = this.waitingChannels.size();
             this.waitingChannels.add(channel);
         } else {
             this.waitingChannels.set(id, channel);
         }
-        this.channel.writeAndFlush(this.channel.alloc().ioBuffer(8 + 2)
+
+        ByteBuf buf = this.channel.alloc().ioBuffer()
+                .writeByte(CONTROL_INCOMING)
                 .writeLong(id)
-                .writeShort(((InetSocketAddress) channel.localAddress()).getPort()));
+                .writeShort(((InetSocketAddress) channel.localAddress()).getPort());
+        writeAddress(buf, (InetSocketAddress) channel.remoteAddress());
+        this.channel.writeAndFlush(buf);
 
         this.waitingChannels.add(channel);
     }

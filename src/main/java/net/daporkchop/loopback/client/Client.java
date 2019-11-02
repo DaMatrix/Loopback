@@ -120,6 +120,12 @@ public final class Client implements Endpoint {
     public synchronized boolean handleCommand(@NonNull String command) {
         if (this.channels == null) throw new IllegalStateException();
 
+        if ("forwards".equals(command)) {
+            Logging.logger.info("%d active forwards:", this.targetAddresses.size());
+            this.targetAddresses.forEach((port, dst) -> Logging.logger.info("  :%d -> %s:%d", port, dst.host(), dst.port()));
+            return false;
+        }
+
         Matcher matcher;
         if ((matcher = PATTERN_ADD_COMMAND.matcher(command)).find()) {
             int sourcePort = Integer.parseInt(matcher.group(1));
@@ -127,15 +133,15 @@ public final class Client implements Endpoint {
             int dstPort = Integer.parseInt(matcher.group(3));
 
             this.targetAddresses.put(sourcePort, new Addr(dstAddress, dstPort));
-            this.controlChannel.writeAndFlush(this.controlChannel.alloc().ioBuffer(3).writeByte(COMMAND_OPEN).writeShort(sourcePort));
+            this.controlChannel.writeAndFlush(this.controlChannel.alloc().ioBuffer(3).writeByte(CONTROL_ADD).writeShort(sourcePort));
             return false;
         } else if ((matcher = PATTERN_REMOVE_COMMAND.matcher(command)).find()) {
             int sourcePort = Integer.parseInt(matcher.group(1));
 
-            if (this.targetAddresses.remove(sourcePort) == null) {
-                Logging.logger.error("No connection registered on port %d!", sourcePort);
+            if (this.targetAddresses.containsKey(sourcePort)) {
+                this.controlChannel.writeAndFlush(this.controlChannel.alloc().ioBuffer(3).writeByte(CONTROL_REMOVE).writeShort(sourcePort));
             } else {
-                this.controlChannel.writeAndFlush(this.controlChannel.alloc().ioBuffer(3).writeByte(COMMAND_CLOSE).writeShort(sourcePort));
+                Logging.logger.error("No connection registered on port %d!", sourcePort);
             }
             return false;
         }
@@ -146,7 +152,8 @@ public final class Client implements Endpoint {
     @Override
     public void printHelp(@NonNull Logger logger) {
         Endpoint.super.printHelp(logger);
-        logger.info("  add <remote port> <local address>:<local port>")
+        logger.info("  forwards")
+                .info("  add <remote port> <local address>:<local port>")
                 .info("  remove <remote port>");
     }
 

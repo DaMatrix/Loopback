@@ -26,6 +26,9 @@ import lombok.RequiredArgsConstructor;
 import net.daporkchop.lib.common.util.PorkUtil;
 import net.daporkchop.lib.logging.Logging;
 import net.daporkchop.loopback.client.Client;
+import net.daporkchop.loopback.util.Addr;
+
+import java.net.InetSocketAddress;
 
 import static net.daporkchop.loopback.util.Constants.*;
 
@@ -40,12 +43,12 @@ public final class ClientControlHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         if (evt instanceof SslHandshakeCompletionEvent) {
-            if (evt == SslHandshakeCompletionEvent.SUCCESS)    {
+            if (evt == SslHandshakeCompletionEvent.SUCCESS) {
                 ctx.channel().attr(ATTR_LOG).get().debug("ssl handshake success (control)");
                 ctx.channel().writeAndFlush(Unpooled.wrappedBuffer(this.client.password()));
 
                 this.client.targetAddresses().forEach((srcPort, addr) -> { //add any ports that are registered already
-                    ctx.channel().writeAndFlush(ctx.alloc().ioBuffer(3).writeByte(COMMAND_OPEN).writeShort(srcPort));
+                    ctx.channel().writeAndFlush(ctx.alloc().ioBuffer(3).writeByte(CONTROL_ADD).writeShort(srcPort));
                 });
             } else {
                 ctx.channel().attr(ATTR_LOG).get().alert(((SslHandshakeCompletionEvent) evt).cause());
@@ -61,14 +64,49 @@ public final class ClientControlHandler extends ChannelInboundHandlerAdapter {
             if (!(msg instanceof ByteBuf)) throw new IllegalArgumentException(PorkUtil.className(msg));
 
             ByteBuf buf = (ByteBuf) msg;
-            if (ctx.channel().hasAttr(ATTR_ID)) {
-                long id = buf.readLong();
-                int port = buf.readUnsignedShort();
-                ctx.channel().attr(ATTR_LOG).get().info("Received connection request for channel ID %d on port %d", id, port);
-                this.client.handleConnectionRequest(id, port);
-            } else {
-                ctx.channel().attr(ATTR_ID).set(buf.readLong());
-                ctx.channel().attr(ATTR_LOG).get().info("Control channel connected! ID: %d", ctx.channel().attr(ATTR_ID).get());
+            int command = buf.readUnsignedByte();
+
+            switch (command) {
+                case CONTROL_HANDSHAKE:
+                    if (ctx.channel().hasAttr(ATTR_ID)) throw new IllegalStateException("Handshake already received!");
+                    ctx.channel().attr(ATTR_ID).set(buf.readLong());
+                    ctx.channel().attr(ATTR_LOG).get().info("Control channel connected! ID: %d", ctx.channel().attr(ATTR_ID).get());
+                    break;
+                case CONTROL_RESULT: {
+                    int port = buf.readUnsignedShort();
+                    if (buf.readByte() != 0) { //remove
+                        if (buf.readByte() == 0) throw new IllegalStateException(String.format("Failed to remove forward for port %d!", port));
+                        Addr addr = this.client.targetAddresses().remove(port);
+                        if (addr != null) {
+                            Logging.logger.success("Removed forward from :%d to %s:%d!", port, addr.host(), addr.port());
+                        } else {
+                            throw new IllegalStateException(String.format("No forward for port %d found!", port));
+                        }
+                    } else {
+                        if (buf.readByte() == 0) {
+                            this.client.targetAddresses().remove(port);
+                            throw new IllegalStateException(String.format("Failed to add forward for port %d!", port));
+                        } else {
+                            Addr addr = this.client.targetAddresses().get(port);
+                            if (addr != null) {
+                                Logging.logger.success("Added forward from :%d to %s:%d!", port, addr.host(), addr.port());
+                            } else {
+                                throw new IllegalStateException(String.format("No forward for port %d found!", port));
+                            }
+                        }
+                    }
+                }
+                break;
+                case CONTROL_INCOMING: {
+                    long id = buf.readLong();
+                    int port = buf.readUnsignedShort();
+                    InetSocketAddress addr = readAddress(buf);
+                    ctx.channel().attr(ATTR_LOG).get().info("%s incoming on remote port %d, channel ID %d", addr, port, id);
+                    this.client.handleConnectionRequest(id, port);
+                }
+                break;
+                default:
+                    throw new IllegalArgumentException(String.format("Invalid command ID: %d", command));
             }
         } finally {
             ReferenceCountUtil.release(msg);

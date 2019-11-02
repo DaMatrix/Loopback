@@ -17,6 +17,7 @@ package net.daporkchop.loopback.server;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.PooledByteBufAllocator;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.group.ChannelGroup;
@@ -31,6 +32,9 @@ import net.daporkchop.loopback.server.backend.BackendChannelInitializer;
 import net.daporkchop.loopback.server.backend.ServerControlHandler;
 import net.daporkchop.loopback.util.Endpoint;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -44,7 +48,7 @@ public final class Server implements Endpoint {
     protected ServerChannel backendListener;
     protected ChannelGroup  allChannels;
 
-    protected LongObjectMap<ServerControlHandler> controlChannelsById;
+    protected List<ServerControlHandler> controlChannelsById;
 
     @Getter
     @NonNull
@@ -57,7 +61,7 @@ public final class Server implements Endpoint {
         if (this.backendListener != null || this.allChannels != null) throw new IllegalStateException();
 
         this.allChannels = new DefaultChannelGroup(GROUP.next());
-        this.controlChannelsById = new LongObjectHashMap<>();
+        this.controlChannelsById = Collections.synchronizedList(new ArrayList<>());
 
         this.backendListener = (ServerChannel) new ServerBootstrap().group(GROUP)
                 .channelFactory(SERVER_CHANNEL_FACTORY)
@@ -86,18 +90,25 @@ public final class Server implements Endpoint {
     public synchronized long addControlChannel(@NonNull ServerControlHandler channel) {
         if (this.backendListener == null || this.allChannels == null) throw new IllegalStateException();
 
-        Random r = ThreadLocalRandom.current();
-        long l;
-        while (this.controlChannelsById.containsKey(l = r.nextLong())) ;
-        this.controlChannelsById.put(l, channel);
-        channel.channel().closeFuture().addListener(future -> this.controlChannelsById.remove(channel.id(), channel));
-        return l;
+        int id = this.controlChannelsById.indexOf(null);
+        if (id == -1) {
+            id = this.controlChannelsById.size();
+            this.controlChannelsById.add(channel);
+        } else {
+            this.controlChannelsById.set(id, channel);
+        }
+        channel.channel().closeFuture().addListener((ChannelFutureListener) future -> {
+            if (this.controlChannelsById != null)   {
+                this.controlChannelsById.set((int) channel.id(), null);
+            }
+        });
+        return id;
     }
 
     public synchronized ServerControlHandler getControlChannel(long id) {
         if (this.backendListener == null || this.allChannels == null) throw new IllegalStateException();
 
-        ServerControlHandler handler = this.controlChannelsById.get(id);
+        ServerControlHandler handler = this.controlChannelsById.get((int) id);
         if (handler == null) throw new IllegalArgumentException(Long.toUnsignedString(id));
         return handler;
     }

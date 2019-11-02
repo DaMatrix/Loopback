@@ -15,6 +15,7 @@
 
 package net.daporkchop.loopback.util;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFactory;
 import io.netty.channel.ChannelFutureListener;
@@ -34,6 +35,8 @@ import lombok.experimental.UtilityClass;
 import net.daporkchop.lib.logging.Logger;
 import net.daporkchop.lib.logging.Logging;
 
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -64,12 +67,14 @@ public class Constants {
 
     public final int PASSWORD_BYTES = 256 >>> 3; // sha256 is 256 bits long
 
-    public final int COMMAND_OPEN  = 0;
-    public final int COMMAND_CLOSE = 1;
+    public final int CONTROL_HANDSHAKE = 0;
+    public final int CONTROL_ADD       = 1;
+    public final int CONTROL_REMOVE    = 2;
+    public final int CONTROL_RESULT    = 3;
+    public final int CONTROL_INCOMING  = 4;
 
-    public final int CLIENT_READY_SOCKETS = 3; //TODO: implement this
+    public final int CLIENT_READY_SOCKETS = 3;
 
-    @SuppressWarnings("deprecation")
     public void bindChannels(@NonNull Channel backend, @NonNull Channel incoming) {
         synchronized (backend) {
             synchronized (incoming) {
@@ -81,5 +86,15 @@ public class Constants {
                 incoming.read();
             }
         }
+    }
+
+    public void writeAddress(@NonNull ByteBuf buf, @NonNull InetSocketAddress address) {
+        int i = buf.writerIndex();
+        int cnt = buf.writeInt(-1).writeCharSequence(address.getHostString(), StandardCharsets.UTF_8);
+        buf.setInt(i, cnt).writeShort(address.getPort());
+    }
+
+    public InetSocketAddress readAddress(@NonNull ByteBuf buf) {
+        return InetSocketAddress.createUnresolved(buf.readCharSequence(buf.readInt(), StandardCharsets.UTF_8).toString(), buf.readUnsignedShort());
     }
 }
