@@ -24,6 +24,8 @@ import io.netty.util.ReferenceCountUtil;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import net.daporkchop.loopback.common.CommonHandler;
+import net.daporkchop.loopback.server.ServerCommonHandler;
 
 import static net.daporkchop.loopback.util.Constants.*;
 

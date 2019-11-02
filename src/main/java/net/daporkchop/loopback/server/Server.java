@@ -54,7 +54,7 @@ public final class Server implements Endpoint {
     public synchronized void start() {
         if (this.backendListener != null || this.allChannels != null) throw new IllegalStateException();
 
-        this.allChannels = new DefaultChannelGroup(GROUP.next(), true);
+        this.allChannels = new DefaultChannelGroup(GROUP.next());
         this.controlChannelsById = new LongObjectHashMap<>();
 
         this.backendListener = (ServerChannel) new ServerBootstrap().group(GROUP)

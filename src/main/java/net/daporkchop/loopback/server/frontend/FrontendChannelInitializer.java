@@ -19,7 +19,12 @@ import io.netty.channel.socket.SocketChannel;
 import lombok.NonNull;
 import net.daporkchop.loopback.common.CommonHandler;
 import net.daporkchop.loopback.server.ServerChannelInitializer;
+import net.daporkchop.loopback.server.ServerCommonHandler;
 import net.daporkchop.loopback.server.backend.ServerControlHandler;
+
+import java.util.concurrent.atomic.AtomicLong;
+
+import static net.daporkchop.loopback.util.Constants.*;
 
 /**
  * @author DaPorkchop_
@@ -39,6 +44,8 @@ public final class FrontendChannelInitializer extends ServerChannelInitializer {
 
         channel.pipeline()
                 .addLast("handle", this.transport)
-                .addLast("common", CommonHandler.INSTANCE);
+                .addLast("common", ServerCommonHandler.INSTANCE);
+
+        channel.attr(ATTR_IDLE).set(new AtomicLong(System.currentTimeMillis()));
     }
 }

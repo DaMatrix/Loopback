@@ -25,6 +25,7 @@ import lombok.NonNull;
 import net.daporkchop.loopback.common.CommonHandler;
 import net.daporkchop.loopback.server.Server;
 import net.daporkchop.loopback.server.ServerChannelInitializer;
+import net.daporkchop.loopback.server.ServerCommonHandler;
 
 import javax.net.ssl.SSLException;
 import java.security.cert.CertificateException;

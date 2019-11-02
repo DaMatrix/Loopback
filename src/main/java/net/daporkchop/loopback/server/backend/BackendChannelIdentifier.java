@@ -22,8 +22,11 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.ReferenceCountUtil;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import net.daporkchop.lib.common.util.PorkUtil;
 import net.daporkchop.lib.logging.Logging;
+import net.daporkchop.loopback.common.CommonHandler;
 import net.daporkchop.loopback.server.Server;
+import net.daporkchop.loopback.server.ServerCommonHandler;
 
 import static net.daporkchop.loopback.util.Constants.*;
 
@@ -42,7 +45,7 @@ public final class BackendChannelIdentifier extends ChannelInboundHandlerAdapter
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         try {
             if (!(msg instanceof ByteBuf)) {
-                ctx.channel().attr(ATTR_LOG).get().error("Received invalid message type: %s", msg == null ? "null" : msg.getClass().getCanonicalName());
+                ctx.channel().attr(ATTR_LOG).get().error("Received invalid message type: %s", PorkUtil.className(msg));
                 ctx.channel().close();
                 return;
             }

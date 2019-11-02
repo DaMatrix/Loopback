@@ -26,11 +26,13 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
+import io.netty.util.ReferenceCountUtil;
 import io.netty.util.collection.IntObjectHashMap;
 import io.netty.util.collection.IntObjectMap;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import net.daporkchop.lib.common.util.PorkUtil;
 import net.daporkchop.lib.logging.Logging;
 import net.daporkchop.loopback.server.Server;
 import net.daporkchop.loopback.server.frontend.FrontendChannelInitializer;
@@ -39,6 +41,7 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static net.daporkchop.loopback.util.Constants.*;
 
@@ -69,11 +72,13 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
         this.id = this.server.addControlChannel(this);
 
         this.waitingChannels = new ArrayList<>();
-        this.allChannels = new DefaultChannelGroup(this.channel.eventLoop(), true);
+        this.allChannels = new DefaultChannelGroup(this.channel.eventLoop());
 
         this.boundChannels = new IntObjectHashMap<>();
 
         this.channel.writeAndFlush(ctx.alloc().ioBuffer(8).writeLong(this.id)); //send self channel ID to remote server
+
+        this.channel.eventLoop().scheduleAtFixedRate(() -> this.allChannels.close(TIMEOUT_MATCHER), 20L, 5L, TimeUnit.SECONDS);
     }
 
     @Override
@@ -87,37 +92,42 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        if (!(msg instanceof ByteBuf)) throw new IllegalArgumentException();
+        try {
+            if (!(msg instanceof ByteBuf)) throw new IllegalArgumentException(PorkUtil.className(msg));
 
-        ByteBuf buf = (ByteBuf) msg;
-        switch (buf.readByte() & 0xFF) {
-            case COMMAND_OPEN: {
-                int port = buf.readUnsignedShort();
-                new ServerBootstrap().group(GROUP)
-                        .channelFactory(SERVER_CHANNEL_FACTORY)
-                        .childHandler(new FrontendChannelInitializer(this))
-                        .childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
-                        .childOption(ChannelOption.AUTO_READ, false)
-                        .childOption(ChannelOption.TCP_NODELAY, true)
-                        .childOption(ChannelOption.SO_KEEPALIVE, true)
-                        .childAttr(ATTR_LOG, DEFAULT_CHANNEL_LOGGER)
-                        .bind(port)
-                        .addListener((ChannelFutureListener) f -> {
-                            if (this.boundChannels.putIfAbsent(port, (ServerChannel) f.channel()) != null || !this.allChannels.add(f.channel())) {
-                                throw new IllegalStateException();
-                            }
-                            Logging.logger.success("Redirecting connections from port %d!", port);
-                        });
-            }
-            break;
-            case COMMAND_CLOSE: {
-                int port = buf.readUnsignedShort();
-                ServerChannel toClose = this.boundChannels.remove(port);
-                if (toClose != null)    { //we don't need to close the connections, they can be left open to be closed by the target application
-                    toClose.close();
+            ByteBuf buf = (ByteBuf) msg;
+            switch (buf.readByte() & 0xFF) {
+                case COMMAND_OPEN: {
+                    int port = buf.readUnsignedShort();
+                    new ServerBootstrap().group(GROUP)
+                            .channelFactory(SERVER_CHANNEL_FACTORY)
+                            .childHandler(new FrontendChannelInitializer(this))
+                            .childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
+                            .childOption(ChannelOption.AUTO_READ, false)
+                            .childOption(ChannelOption.TCP_NODELAY, true)
+                            .childOption(ChannelOption.SO_KEEPALIVE, true)
+                            .childAttr(ATTR_LOG, DEFAULT_CHANNEL_LOGGER)
+                            .bind(port)
+                            .addListener((ChannelFutureListener) f -> {
+                                ServerChannel channel = (ServerChannel) f.channel();
+                                if (this.boundChannels.putIfAbsent(port, channel) != null || !this.allChannels.add(channel)) {
+                                    throw new IllegalStateException();
+                                }
+                                Logging.logger.success("Redirecting connections from port %d!", port);
+                            });
                 }
+                break;
+                case COMMAND_CLOSE: {
+                    int port = buf.readUnsignedShort();
+                    ServerChannel toClose = this.boundChannels.remove(port);
+                    if (toClose != null) { //we don't need to close the connections, they can be left open to be closed by the target application
+                        toClose.close();
+                    }
+                }
+                break;
             }
-            break;
+        } finally {
+            ReferenceCountUtil.release(msg);
         }
     }
 
@@ -146,6 +156,5 @@ public final class ServerControlHandler extends ChannelInboundHandlerAdapter {
                 .writeShort(((InetSocketAddress) channel.localAddress()).getPort()));
 
         this.waitingChannels.add(channel);
-        this.allChannels.add(channel);
     }
 }

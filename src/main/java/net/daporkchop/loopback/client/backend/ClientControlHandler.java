@@ -23,6 +23,7 @@ import io.netty.handler.ssl.SslHandshakeCompletionEvent;
 import io.netty.util.ReferenceCountUtil;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import net.daporkchop.lib.common.util.PorkUtil;
 import net.daporkchop.lib.logging.Logging;
 import net.daporkchop.loopback.client.Client;
 
@@ -65,9 +66,9 @@ public final class ClientControlHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         try {
-            if (!(msg instanceof ByteBuf)) throw new IllegalArgumentException(msg == null ? "null" : msg.getClass().getCanonicalName());
-            ByteBuf buf = (ByteBuf) msg;
+            if (!(msg instanceof ByteBuf)) throw new IllegalArgumentException(PorkUtil.className(msg));
 
+            ByteBuf buf = (ByteBuf) msg;
             if (ctx.channel().hasAttr(ATTR_ID)) {
                 long id = buf.readLong();
                 int port = buf.readUnsignedShort();

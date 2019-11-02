@@ -13,50 +13,41 @@
  *
  */
 
-package net.daporkchop.loopback.common;
+package net.daporkchop.loopback.server;
 
-import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.unix.Errors;
+import io.netty.channel.ChannelPromise;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import net.daporkchop.lib.logging.Logging;
+import net.daporkchop.loopback.common.CommonHandler;
 
 import static net.daporkchop.loopback.util.Constants.*;
 
 /**
  * @author DaPorkchop_
  */
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 @ChannelHandler.Sharable
-public class CommonHandler extends ChannelDuplexHandler {
-    public static final CommonHandler INSTANCE = new CommonHandler();
+public final class ServerCommonHandler extends CommonHandler {
+    public static final ServerCommonHandler INSTANCE = new ServerCommonHandler();
 
-    //set logger
     @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        ctx.channel().attr(ATTR_LOG).set(Logging.logger.channel(ctx.channel().remoteAddress().toString()));
-
-        super.channelActive(ctx);
-    }
-
-    //close paired channel, if any
-    @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        if (ctx.channel().hasAttr(ATTR_PAIR)) ctx.channel().attr(ATTR_PAIR).get().close();
-        ctx.channel().attr(ATTR_LOG).get().debug("channel closed");
-
-        super.channelUnregistered(ctx);
-    }
-
-    //print exception to logger and close channel
-    @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        if (!(cause instanceof Errors.NativeIoException))   {
-            ctx.channel().attr(ATTR_LOG).get().alert(cause);
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        //fired by forwarding handlers every time a message is received on a backend/frontend transport channel
+        if (evt == ATTR_IDLE) {
+            //set idle time to current time
+            ctx.channel().attr(ATTR_IDLE).get().set(System.currentTimeMillis());
         }
-        ctx.channel().close();
+
+        super.userEventTriggered(ctx, evt);
+    }
+
+    @Override
+    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
+        //set idle time to current time
+        ctx.channel().attr(ATTR_IDLE).get().set(System.currentTimeMillis());
+
+        super.write(ctx, msg, promise);
     }
 }

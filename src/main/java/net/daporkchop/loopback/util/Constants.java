@@ -24,6 +24,7 @@ import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.epoll.EpollSocketChannel;
+import io.netty.channel.group.ChannelMatcher;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -32,6 +33,8 @@ import lombok.NonNull;
 import lombok.experimental.UtilityClass;
 import net.daporkchop.lib.logging.Logger;
 import net.daporkchop.lib.logging.Logging;
+
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author DaPorkchop_
@@ -47,12 +50,14 @@ public class Constants {
     public final ChannelFactory<Channel>       CLIENT_CHANNEL_FACTORY = Epoll.isAvailable() ? EpollSocketChannel::new : NioSocketChannel::new;
     public final ChannelFactory<ServerChannel> SERVER_CHANNEL_FACTORY = Epoll.isAvailable() ? EpollServerSocketChannel::new : NioServerSocketChannel::new;
 
-    public final AttributeKey<Channel> ATTR_PAIR = AttributeKey.newInstance("loopback_pair");
-    public final AttributeKey<Long>    ATTR_ID   = AttributeKey.newInstance("loopback_id");
-    public final AttributeKey<Logger>  ATTR_LOG  = AttributeKey.newInstance("loopback_log");
-    public final AttributeKey<Boolean>  ATTR_BOUND  = AttributeKey.newInstance("loopback_bound");
+    public final AttributeKey<Channel>    ATTR_PAIR  = AttributeKey.newInstance("loopback_pair");
+    public final AttributeKey<Long>       ATTR_ID    = AttributeKey.newInstance("loopback_id");
+    public final AttributeKey<Logger>     ATTR_LOG   = AttributeKey.newInstance("loopback_log");
+    public final AttributeKey<Boolean>    ATTR_BOUND = AttributeKey.newInstance("loopback_bound");
+    public final AttributeKey<AtomicLong> ATTR_IDLE  = AttributeKey.newInstance("loopback_idle");
 
     public final ChannelFutureListener DO_READ_HANDLER = future -> future.channel().attr(ATTR_PAIR).get().read();
+    public final ChannelMatcher TIMEOUT_MATCHER = channel -> channel.hasAttr(ATTR_IDLE) && channel.attr(ATTR_IDLE).get().get() >= System.currentTimeMillis() + SERVER_CONNECTION_TIMEOUT;
 
     public final Logger DEFAULT_CHANNEL_LOGGER = Logging.logger.channel("Unknown Channel");
 

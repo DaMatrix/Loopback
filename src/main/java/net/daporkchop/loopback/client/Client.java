@@ -74,7 +74,7 @@ public final class Client implements Endpoint {
     public synchronized void start() {
         if (this.channels != null) throw new IllegalStateException();
 
-        this.channels = new DefaultChannelGroup(GROUP.next(), false);
+        this.channels = new DefaultChannelGroup(GROUP.next());
         this.targetAddresses = new IntObjectHashMap<>();
 
         this.bootstrap = new Bootstrap().group(GROUP)
