@@ -41,7 +41,8 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 @UtilityClass
 public class Constants {
-    public final long SERVER_CONNECTION_TIMEOUT = 10000L;
+    public final long SERVER_CONNECTION_TIMEOUT = 10L;
+    public final long CLIENT_RECONNECT_DELAY    = 5L;
 
     public final EventLoopGroup GROUP = Epoll.isAvailable()
             ? new EpollEventLoopGroup(Runtime.getRuntime().availableProcessors())
@@ -57,7 +58,7 @@ public class Constants {
     public final AttributeKey<AtomicLong> ATTR_IDLE  = AttributeKey.newInstance("loopback_idle");
 
     public final ChannelFutureListener DO_READ_HANDLER = future -> future.channel().attr(ATTR_PAIR).get().read();
-    public final ChannelMatcher TIMEOUT_MATCHER = channel -> channel.hasAttr(ATTR_IDLE) && channel.attr(ATTR_IDLE).get().get() >= System.currentTimeMillis() + SERVER_CONNECTION_TIMEOUT;
+    public final ChannelMatcher        TIMEOUT_MATCHER = channel -> channel.hasAttr(ATTR_IDLE) && channel.attr(ATTR_IDLE).get().get() >= System.currentTimeMillis() + SERVER_CONNECTION_TIMEOUT * 1000L;
 
     public final Logger DEFAULT_CHANNEL_LOGGER = Logging.logger.channel("Unknown Channel");
 

@@ -17,9 +17,11 @@ package net.daporkchop.loopback.client;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.PooledByteBufAllocator;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.ChannelGroupFuture;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslHandler;
@@ -36,6 +38,7 @@ import net.daporkchop.loopback.client.target.TargetChannelInitializer;
 import net.daporkchop.loopback.util.Addr;
 import net.daporkchop.loopback.util.Endpoint;
 
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -47,23 +50,24 @@ import static net.daporkchop.loopback.util.Constants.*;
 @RequiredArgsConstructor
 @Getter
 public final class Client implements Endpoint {
-    private static final Pattern PATTERN_ADD_COMMAND    = Pattern.compile("^add ([0-9]{1,4}|[0-6][0-5]{2}[0-3][0-5]) ([^:]+):([0-9]{1,4}|[0-6][0-5]{2}[0-3][0-5])$");
-    private static final Pattern PATTERN_REMOVE_COMMAND = Pattern.compile("^remove ([0-9]{1,4}|[0-6][0-5]{2}[0-3][0-5])$");
+    private static final Pattern PATTERN_ADD_COMMAND    = Pattern.compile("^add ([0-9]{1,4}|[0-5][0-9]{4}|6[0-5]{2}[0-3][0-5]) ([^:]+):([0-9]{1,4}|[0-5][0-9]{4}|6[0-5]{2}[0-3][0-5])$");
+    private static final Pattern PATTERN_REMOVE_COMMAND = Pattern.compile("^remove ([0-9]{1,4}|[0-5][0-9]{4}|6[0-5]{2}[0-3][0-5])$");
 
     @NonNull
     protected final byte[] password;
     @NonNull
     protected final Addr   serverAddress;
 
+    protected ChannelFutureListener controlCloseHandler;
+
     protected ChannelGroup channels;
     protected Bootstrap    bootstrap;
     protected Bootstrap    targetBootstrap;
 
-    private volatile SocketChannel controlChannel;
+    private volatile SocketChannel      controlChannel;
+    private          IntObjectMap<Addr> targetAddresses;
 
     //private final Queue<Channel> readyChannels = new ConcurrentLinkedQueue<>();
-
-    private IntObjectMap<Addr> targetAddresses;
 
     @Override
     public synchronized void start() {
@@ -71,6 +75,16 @@ public final class Client implements Endpoint {
 
         this.channels = new DefaultChannelGroup(GROUP.next());
         this.targetAddresses = new IntObjectHashMap<>();
+
+        this.controlCloseHandler = f -> {
+            Logging.logger.error("Control channel disconnected from %s, attempting to reconnect in %d seconds...", this.serverAddress, CLIENT_RECONNECT_DELAY);
+            ChannelGroupFuture channelsFuture = this.channels.close();
+            //don't try to reconnect until all channels are closed
+            GROUP.next().schedule(() -> channelsFuture.addListener(f1 -> {
+                Logging.logger.info("Control channel attempting to reconnect...");
+                this.bootstrap.connect(this.serverAddress.host(), this.serverAddress.port());
+            }), CLIENT_RECONNECT_DELAY, TimeUnit.SECONDS);
+        };
 
         this.bootstrap = new Bootstrap().group(GROUP)
                 .channelFactory(CLIENT_CHANNEL_FACTORY)
@@ -94,6 +108,10 @@ public final class Client implements Endpoint {
 
         this.targetBootstrap = this.bootstrap = null;
         this.targetAddresses = null;
+
+        Channel controlChannel = this.controlChannel;
+        if (controlChannel != null) controlChannel.closeFuture().removeListener(this.controlCloseHandler);
+        this.controlCloseHandler = null;
 
         return this.channels.close().addListener(f -> this.channels = null);
     }

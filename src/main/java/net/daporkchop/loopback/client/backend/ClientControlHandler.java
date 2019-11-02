@@ -38,14 +38,6 @@ public final class ClientControlHandler extends ChannelInboundHandlerAdapter {
     protected final Client client;
 
     @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        ctx.channel().attr(ATTR_LOG).get().info("Control channel disconnected!");
-        this.client.channels().close(); //disconnect everything
-
-        super.channelInactive(ctx);
-    }
-
-    @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         if (evt instanceof SslHandshakeCompletionEvent) {
             if (evt == SslHandshakeCompletionEvent.SUCCESS)    {

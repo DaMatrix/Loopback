@@ -65,9 +65,12 @@ public final class BackendChannelInitializerClient extends ClientChannelInitiali
         channel.pipeline().addLast("ssl", new SslHandler(SSL_CONTEXT.newEngine(channel.alloc()), false));
 
         if (PUnsafe.compareAndSwapObject(this.client, CLIENT_CONTROL_CHANNEL_OFFSET, null, channel)) {
-            channel.closeFuture().addListener((ChannelFutureListener) f -> PUnsafe.compareAndSwapObject(this.client, CLIENT_CONTROL_CHANNEL_OFFSET, f.channel(), null));
             //the new channel should be a control channel
             channel.attr(ATTR_LOG).get().debug("initChannel (control)");
+
+            channel.closeFuture()
+                    .addListener((ChannelFutureListener) f -> PUnsafe.compareAndSwapObject(this.client, CLIENT_CONTROL_CHANNEL_OFFSET, f.channel(), null))
+                    .addListener(this.client.controlCloseHandler());
 
             channel.config().setAutoRead(true);
             channel.pipeline().addLast("handle", new ClientControlHandler(this.client));

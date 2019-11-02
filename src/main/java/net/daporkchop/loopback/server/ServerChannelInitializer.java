@@ -45,6 +45,6 @@ public abstract class ServerChannelInitializer extends ChannelInitializer<Socket
                     channel.close();
                 }
             }
-        }, SERVER_CONNECTION_TIMEOUT, TimeUnit.MILLISECONDS);
+        }, SERVER_CONNECTION_TIMEOUT, TimeUnit.SECONDS);
     }
 }

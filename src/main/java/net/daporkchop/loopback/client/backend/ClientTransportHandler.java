@@ -15,9 +15,12 @@
 
 package net.daporkchop.loopback.client.backend;
 
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslHandshakeCompletionEvent;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -36,20 +39,21 @@ public final class ClientTransportHandler extends ChannelInboundHandlerAdapter {
     protected final Client client;
 
     @Override
-    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-        if (evt instanceof SslHandshakeCompletionEvent) {
-            if (evt == SslHandshakeCompletionEvent.SUCCESS) {
-                ctx.channel().attr(ATTR_LOG).get().debug("ssl handshake success (data)");
-                ctx.channel().writeAndFlush(ctx.alloc().ioBuffer(PASSWORD_BYTES + 8)
+    public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+        ctx.pipeline().get(SslHandler.class).handshakeFuture().addListener(f -> {
+            Channel channel = (Channel) f.getNow();
+            if (f.isSuccess()) {
+                channel.attr(ATTR_LOG).get().debug("ssl handshake success (data)");
+                channel.writeAndFlush(ctx.alloc().ioBuffer(PASSWORD_BYTES + 8)
                         .writeBytes(this.client.password())
                         .writeLong(this.client.controlChannel().attr(ATTR_ID).get()));
-                //this.client.readyChannels().add(ctx.channel());
             } else {
-                ctx.channel().attr(ATTR_LOG).get().alert(((SslHandshakeCompletionEvent) evt).cause());
+                channel.attr(ATTR_LOG).get().alert(f.cause());
+                channel.close();
             }
-        }
+        });
 
-        super.userEventTriggered(ctx, evt);
+        super.handlerAdded(ctx);
     }
 
     @Override
