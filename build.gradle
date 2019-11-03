@@ -55,6 +55,8 @@ dependencies {
     shade "io.netty:netty-handler:$nettyVersion"
     shade "io.netty:netty-transport-native-epoll:$nettyVersion:linux-x86_64"
 
+    shade "io.netty:netty-transport-sctp:$nettyVersion"
+
     shade "net.daporkchop.lib:hash:$porklibVersion"
     shade "net.daporkchop.lib:logging:$porklibVersion"
 

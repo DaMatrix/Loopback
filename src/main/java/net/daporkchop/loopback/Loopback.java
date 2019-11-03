@@ -54,10 +54,22 @@ public final class Loopback {
                 case "client": {
                     Matcher matcher = Pattern.compile("^([^:]+):([0-9]{1,4}|[0-5][0-9]{4}|6[0-5]{2}[0-3][0-5])$").matcher(args[2]);
                     if (!matcher.find()) throw new IllegalArgumentException(String.format("Invalid address:port (\"%s\")", args[2]));
-                    endpoint = new Client(hash, new Addr(matcher.group(1), Integer.parseInt(matcher.group(2))));
+                    Addr addr = new Addr(matcher.group(1), Integer.parseInt(matcher.group(2)));
+
+                    if (true) {
+                        Test.startClient(addr);
+                        System.exit(0);
+                    }
+
+                    endpoint = new Client(hash, addr);
                 }
                 break;
                 case "server":
+                    if (true) {
+                        Test.startServer(Integer.parseInt(args[2]));
+                        System.exit(0);
+                    }
+
                     endpoint = new Server(hash, Integer.parseInt(args[2]));
                     break;
                 default:
